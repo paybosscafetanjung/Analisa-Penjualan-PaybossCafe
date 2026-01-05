@@ -46,6 +46,13 @@
 
     .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 900; }
 
+    /* Matrix Badges */
+    .mx-badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+    .mx-stars { background: #dcfce7; color: #15803d; }
+    .mx-plow { background: #fef9c3; color: #854d0e; }
+    .mx-puzzle { background: #dbeafe; color: #1e40af; }
+    .mx-dogs { background: #fee2e2; color: #991b1b; }
+
     .toast { position: fixed; bottom: 24px; right: 24px; background: #ef4444; color: white; padding: 14px 18px; border-radius: 12px; display: none; z-index: 100; box-shadow: 0 10px 20px rgba(0,0,0,0.2); max-width: 420px; }
     .toast.show { display: block; animation: slideUp 0.2s ease; }
     @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -162,28 +169,53 @@
     <!-- Menu Matrix (Scatter Plot) -->
     <div class="card mb-6">
       <h3>🧩 Menu Engineering Matrix (Profit vs Popularity)</h3>
-      <div class="flex flex-col md:flex-row gap-4 h-full">
+      <div class="flex flex-col md:flex-row gap-4 mb-4">
         <div class="flex-1 h-[340px] relative">
            <canvas id="matrixChart"></canvas>
         </div>
         <div class="md:w-64 flex flex-col justify-center space-y-4 text-xs">
            <div class="p-3 bg-green-50 rounded-lg border border-green-100">
              <div class="font-bold text-green-700 flex items-center"><span class="legend-dot bg-green-500"></span> STARS</div>
-             <div class="text-green-600 mt-1">High Popularity, High Revenue. Pertahankan kualitas & stok!</div>
+             <div class="text-green-600 mt-1">High Popularity, High Revenue.</div>
            </div>
            <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
              <div class="font-bold text-yellow-700 flex items-center"><span class="legend-dot bg-yellow-400"></span> PLOWHORSES</div>
-             <div class="text-yellow-600 mt-1">High Popularity, Low Revenue. Coba naikkan harga margin sedikit.</div>
+             <div class="text-yellow-600 mt-1">High Popularity, Low Revenue.</div>
            </div>
            <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
              <div class="font-bold text-blue-700 flex items-center"><span class="legend-dot bg-blue-400"></span> PUZZLES</div>
-             <div class="text-blue-600 mt-1">Low Popularity, High Revenue. Perlu promosi lebih gencar.</div>
+             <div class="text-blue-600 mt-1">Low Popularity, High Revenue.</div>
            </div>
            <div class="p-3 bg-red-50 rounded-lg border border-red-100">
              <div class="font-bold text-red-700 flex items-center"><span class="legend-dot bg-red-500"></span> DOGS</div>
-             <div class="text-red-600 mt-1">Low Popularity, Low Revenue. Pertimbangkan hapus dari menu.</div>
+             <div class="text-red-600 mt-1">Low Popularity, Low Revenue.</div>
            </div>
         </div>
+      </div>
+      <!-- Matrix Insight & Action Box -->
+      <div id="matrix-insight" class="bg-slate-50 rounded-xl p-5 border border-slate-200">
+          <div class="text-center text-slate-400 text-sm">Menghitung matriks...</div>
+      </div>
+    </div>
+
+    <!-- NEW: MATRIX DETAIL TABLE -->
+    <div class="card mb-6">
+      <h3>📋 Detail Matrix Menu (Urut Status)</h3>
+      <div class="overflow-x-auto" style="max-height: 400px; overflow-y:auto; border-radius: 14px;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Menu</th>
+              <th>Kategori</th>
+              <th style="width:100px;">Qty</th>
+              <th style="width:140px;">Revenue</th>
+              <th style="width:120px;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="matrixTableBody">
+            <tr><td colspan="5" class="text-center py-8 text-slate-400">Menunggu data matriks...</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -709,15 +741,23 @@
       });
     }
 
-    // ===== NEW: Render Matrix =====
+    // ===== RENDER MATRIX & NEW TABLE =====
     function renderMatrix(items) {
        const ctx = document.getElementById('matrixChart');
-       if (!ctx) return;
+       const insightBox = document.getElementById('matrix-insight');
+       const tableBody = document.getElementById('matrixTableBody');
+       
+       if (!ctx || !insightBox || !tableBody) return;
        
        if (matrixChart) matrixChart.destroy();
 
        const activeItems = items.filter(x => x.qty > 0);
-       if(activeItems.length === 0) return; // No data
+       
+       if(activeItems.length === 0) {
+           insightBox.innerHTML = '<div class="text-center text-slate-400 text-sm">Data belum cukup untuk analisis.</div>';
+           tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">Belum ada data...</td></tr>';
+           return; 
+       }
 
        const totalQty = activeItems.reduce((a,b) => a + b.qty, 0);
        const totalRev = activeItems.reduce((a,b) => a + b.revenue, 0);
@@ -725,30 +765,78 @@
        const avgQty = totalQty / count;
        const avgRev = totalRev / count;
 
-       // Classify
+       let counts = { stars: 0, plowhorses: 0, puzzles: 0, dogs: 0 };
+
+       // Classify & Build Dataset
        const dataset = activeItems.map(item => {
           let color = '#94a3b8'; // default
           let cat = 'Unknown';
+          let badgeClass = '';
           
           if (item.qty >= avgQty && item.revenue >= avgRev) {
-             color = '#22c55e'; cat = 'Stars'; // Green
+             color = '#22c55e'; cat = 'Stars'; counts.stars++; badgeClass = 'mx-stars';
           } else if (item.qty >= avgQty && item.revenue < avgRev) {
-             color = '#eab308'; cat = 'Plowhorses'; // Yellow
+             color = '#eab308'; cat = 'Plowhorses'; counts.plowhorses++; badgeClass = 'mx-plow';
           } else if (item.qty < avgQty && item.revenue >= avgRev) {
-             color = '#60a5fa'; cat = 'Puzzles'; // Blue
+             color = '#60a5fa'; cat = 'Puzzles'; counts.puzzles++; badgeClass = 'mx-puzzle';
           } else {
-             color = '#ef4444'; cat = 'Dogs'; // Red
+             color = '#ef4444'; cat = 'Dogs'; counts.dogs++; badgeClass = 'mx-dogs';
           }
 
           return {
              x: item.qty,
              y: item.revenue,
              name: item.name,
+             category: item.category,
              cat: cat,
-             color: color
+             color: color,
+             badgeClass: badgeClass
           };
        });
 
+       // 1. POPULATE INSIGHT BOX
+       let dominant = 'Dogs';
+       let maxVal = counts.dogs;
+       if (counts.stars > maxVal) { dominant = 'Stars'; maxVal = counts.stars; }
+       if (counts.plowhorses > maxVal) { dominant = 'Plowhorses'; maxVal = counts.plowhorses; }
+       if (counts.puzzles > maxVal) { dominant = 'Puzzles'; maxVal = counts.puzzles; }
+
+       let advice = '';
+       if (dominant === 'Stars') advice = 'Strategi aman. Pertahankan kualitas & stok.';
+       if (dominant === 'Plowhorses') advice = 'Populer tapi untung tipis. Coba naikkan harga atau efisiensi porsi.';
+       if (dominant === 'Puzzles') advice = 'Untung besar tapi sepi. Fokus ke marketing & foto produk menarik.';
+       if (dominant === 'Dogs') advice = 'Banyak menu beban. Evaluasi rasa atau hapus item yang > 30 hari tidak laku.';
+
+       insightBox.innerHTML = `
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-center">
+             <div class="bg-green-50 p-2 rounded-lg"><div class="font-bold text-lg text-green-700">${counts.stars}</div><div class="text-xs text-green-600">Stars</div></div>
+             <div class="bg-yellow-50 p-2 rounded-lg"><div class="font-bold text-lg text-yellow-700">${counts.plowhorses}</div><div class="text-xs text-yellow-600">Plowhorses</div></div>
+             <div class="bg-blue-50 p-2 rounded-lg"><div class="font-bold text-lg text-blue-700">${counts.puzzles}</div><div class="text-xs text-blue-600">Puzzles</div></div>
+             <div class="bg-red-50 p-2 rounded-lg"><div class="font-bold text-lg text-red-700">${counts.dogs}</div><div class="text-xs text-red-600">Dogs</div></div>
+          </div>
+          <div class="border-t border-slate-100 pt-3">
+             <div class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Kesimpulan & Rekomendasi</div>
+             <div class="text-sm text-slate-800 font-medium">Dominasi: <span class="font-bold text-indigo-600">${dominant}</span>.</div>
+             <div class="text-sm text-slate-600 mt-1">${advice}</div>
+          </div>
+       `;
+
+       // 2. POPULATE DETAIL TABLE
+       // Sort Order: Stars -> Plowhorses -> Puzzles -> Dogs, then Revenue Desc
+       const order = { 'Stars': 1, 'Plowhorses': 2, 'Puzzles': 3, 'Dogs': 4 };
+       const sortedData = [...dataset].sort((a,b) => (order[a.cat] - order[b.cat]) || (b.y - a.y));
+
+       tableBody.innerHTML = sortedData.map(d => `
+          <tr>
+             <td class="font-bold text-slate-700">${escapeHtml(d.name)}</td>
+             <td class="text-xs text-slate-500">${escapeHtml(d.category)}</td>
+             <td class="font-mono">${d.x}</td>
+             <td class="font-mono">${fmtRp(d.y)}</td>
+             <td><span class="mx-badge ${d.badgeClass}">${d.cat}</span></td>
+          </tr>
+       `).join('');
+
+       // 3. RENDER CHART
        matrixChart = new Chart(ctx, {
           type: 'scatter',
           data: {
