@@ -193,6 +193,7 @@
       <!-- Top Sellers -->
       <div class="card lg:col-span-2">
         <h3>🔥 Top Sellers (Qty & Revenue)</h3>
+        <div id="top-summary" class="mb-3 text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-2 rounded-lg">Loading Summary...</div>
         <div class="chart-box"><canvas id="topChart"></canvas></div>
         <div class="mt-4 overflow-x-auto" style="max-height: 360px; overflow-y:auto; border-radius: 14px;">
           <table class="table">
@@ -203,7 +204,7 @@
                 <th style="width:140px;">Kategori</th>
                 <th style="width:90px;">Qty</th>
                 <th style="width:140px;">Revenue</th>
-                <th style="width:130px;">Attach Rate</th>
+                <th style="width:100px;">Kontribusi</th>
               </tr>
             </thead>
             <tbody id="topTbody">
@@ -224,6 +225,7 @@
       <!-- Bottom Sellers -->
       <div class="card lg:col-span-2">
         <h3>🐢 Bottom Sellers (Paling Tidak Laku)</h3>
+        <div id="bottom-summary" class="mb-3 text-xs font-bold text-red-700 bg-red-50 px-3 py-2 rounded-lg">Loading Summary...</div>
         <div class="chart-box"><canvas id="bottomChart"></canvas></div>
         <div class="mt-4 overflow-x-auto" style="max-height: 360px; overflow-y:auto; border-radius: 14px;">
           <table class="table">
@@ -233,7 +235,7 @@
                 <th>Menu</th>
                 <th style="width:140px;">Kategori</th>
                 <th style="width:90px;">Qty</th>
-                <th style="width:140px;">Revenue</th>
+                <th style="width:140px;">Terakhir Laku</th>
                 <th style="width:130px;">Saran</th>
               </tr>
             </thead>
@@ -399,7 +401,7 @@
       let payQ = 0, payC = 0;
       const shift = { Pagi: 0, Siang: 0, Malam: 0 };
 
-      // itemAgg: name -> { qty, revenue, txCount, category }
+      // itemAgg: name -> { qty, revenue, txCount, category, lastSold }
       const itemAgg = new Map();
 
       orders.forEach(o => {
@@ -466,10 +468,13 @@
           totalQty += it.qty;
 
           const cat = inferCategory(it);
-          if (!itemAgg.has(it.name)) itemAgg.set(it.name, { name: it.name, qty: 0, revenue: 0, txCount: 0, category: cat });
+          if (!itemAgg.has(it.name)) itemAgg.set(it.name, { name: it.name, qty: 0, revenue: 0, txCount: 0, category: cat, lastSold: 0 });
           const row = itemAgg.get(it.name);
           row.qty += it.qty;
           row.revenue += itemRev;
+          // Update last sold if this order is more recent
+          if (ts > row.lastSold) row.lastSold = ts;
+
           if (row.category === 'Lainnya' && cat !== 'Lainnya') row.category = cat;
           
           if (!uniqueInOrder.has(it.name)) uniqueInOrder.set(it.name, true);
@@ -628,9 +633,18 @@
       const isDrink = /^Minuman/i.test(cat) || /coffee|non coffee|mocktail/i.test(cat);
       const best = topBest?.name ? topBest.name : 'menu terlaris';
       if (item.qty <= 1) return `Bundling dgn ${best}`;
-      if (item.attachRate < 0.1) return 'Tampilkan di rekomendasi kasir';
+      if (item.attachRate < 0.1) return 'Cek kualitas rasa';
       if (isDrink) return 'Promo jam sepi';
-      return 'Jadikan add-on';
+      return 'Potensi Hapus';
+    }
+
+    function formatTimeAgo(ts) {
+        if (!ts) return 'Tidak diketahui';
+        const diff = Date.now() - ts;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        if (days === 0) return 'Hari ini';
+        if (days === 1) return 'Kemarin';
+        return `${days} hari lalu`;
     }
 
     function renderCharts(top, bottom) {
@@ -871,6 +885,14 @@
       const topT = document.getElementById('topTbody');
       const bottomT = document.getElementById('bottomTbody');
 
+      // Update Summary Header
+      const top5Share = top.slice(0,5).reduce((acc, curr) => acc + curr.revShare, 0) * 100;
+      document.getElementById('top-summary').innerText = `🔥 Top 5 Menu Menyumbang ${top5Share.toFixed(1)}% dari Total Omset`;
+
+      const bottom5Share = bottom.slice(0,5).reduce((acc, curr) => acc + curr.revShare, 0) * 100;
+      document.getElementById('bottom-summary').innerText = `⚠️ 5 Menu Terbawah Hanya Menyumbang ${bottom5Share.toFixed(2)}% dari Total Omset`;
+
+
       if (!top.length) {
         topT.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-400">Belum ada data menu.</td></tr>';
       } else {
@@ -883,7 +905,7 @@
               <td><span class="pill ${catPill}">${escapeHtml(x.category)}</span></td>
               <td class="font-extrabold">${x.qty}</td>
               <td class="font-extrabold">${fmtRp(x.revenue)}</td>
-              <td><span class="pill bg-emerald-100 text-emerald-700">${pct(x.attachRate)}</span></td>
+              <td><span class="pill bg-emerald-100 text-emerald-700">${pct(x.revShare)}</span></td>
             </tr>
           `;
         }).join('');
@@ -901,7 +923,7 @@
               <td class="font-extrabold">${escapeHtml(x.name)}</td>
               <td><span class="pill ${catPill}">${escapeHtml(x.category)}</span></td>
               <td class="font-extrabold">${x.qty}</td>
-              <td class="font-extrabold">${fmtRp(x.revenue)}</td>
+              <td class="font-mono text-xs font-semibold text-slate-600">${formatTimeAgo(x.lastSold)}</td>
               <td><span class="pill bg-rose-100 text-rose-700">${escapeHtml(saran)}</span></td>
             </tr>
           `;
