@@ -25,10 +25,16 @@
     .card h3 { color: #0f172a; font-size: 14px; font-weight: 900; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; letter-spacing: -0.2px; }
     .card h3::before { content: ''; display: inline-block; width: 4px; height: 16px; background: #6366f1; border-radius: 999px; }
 
-    .kpi { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.22); backdrop-filter: blur(10px); border-radius: 18px; padding: 16px; color: white; }
+    .kpi { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.22); backdrop-filter: blur(10px); border-radius: 18px; padding: 16px; color: white; position: relative; overflow: hidden; }
     .kpi .label { font-size: 12px; opacity: 0.85; font-weight: 700; }
     .kpi .value { font-size: 22px; font-weight: 900; letter-spacing: -0.3px; margin-top: 4px; }
-    .kpi .sub { font-size: 12px; opacity: 0.9; margin-top: 6px; }
+    .kpi .sub { font-size: 12px; opacity: 0.9; margin-top: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    
+    /* Growth Badge */
+    .growth-badge { font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 6px; display: inline-flex; align-items: center; gap: 2px; }
+    .growth-up { background: #dcfce7; color: #15803d; } /* Green */
+    .growth-down { background: #fee2e2; color: #b91c1c; } /* Red */
+    .growth-neutral { background: #f1f5f9; color: #64748b; } /* Gray */
 
     .chart-box { height: 260px; position: relative; width: 100%; }
 
@@ -85,14 +91,25 @@
           <button class="filter-btn px-4 py-2 rounded-xl text-sm font-extrabold text-slate-600 hover:bg-slate-100" onclick="setFilter('custom')" id="btn-custom">Custom</button>
         </div>
 
-        <div class="flex flex-col md:flex-row gap-2 md:items-center">
+        <div class="flex flex-col md:flex-row gap-2 md:items-center w-full md:w-auto">
+          
+          <!-- Category Filter -->
+          <select id="filter-category" onchange="setCategory(this.value)" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 bg-white">
+            <option value="All">📁 Semua Kategori</option>
+            <option value="Makanan">🍛 Makanan</option>
+            <option value="Minuman">🥤 Minuman (All)</option>
+            <option value="Minuman - Coffee">☕ Minuman - Coffee</option>
+            <option value="Minuman - Non Coffee">🍵 Minuman - Non Coffee</option>
+            <option value="Minuman - Mocktail">🍹 Minuman - Mocktail</option>
+          </select>
+
           <div class="flex gap-2">
             <input type="date" id="date-start" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700" />
             <input type="date" id="date-end" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700" />
           </div>
           <button onclick="applyCustomRange()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-extrabold hover:bg-slate-800">Terapkan</button>
           <div class="flex-1"></div>
-          <input id="search-item" oninput="renderTables()" placeholder="Cari nama menu…" class="w-full md:w-64 px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold" />
+          <input id="search-item" oninput="renderTables()" placeholder="Cari nama menu…" class="w-full md:w-48 px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold" />
         </div>
       </div>
 
@@ -101,20 +118,30 @@
 
     <!-- KPI Row -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+      <!-- REVENUE with Growth -->
       <div class="kpi">
         <div class="label">Total Revenue</div>
         <div class="value" id="kpi-revenue">Rp 0</div>
-        <div class="sub" id="kpi-revenue-sub">0% QRIS • 0% Cash</div>
+        <div class="sub">
+           <span id="rev-growth" class="growth-badge growth-neutral">-</span>
+           <span id="kpi-revenue-sub" class="text-xs">0% QRIS</span>
+        </div>
       </div>
+
+      <!-- ORDERS with Growth -->
       <div class="kpi">
         <div class="label">Total Orders</div>
         <div class="value" id="kpi-orders">0</div>
-        <div class="sub" id="kpi-orders-sub">0 transaksi valid</div>
+        <div class="sub">
+            <span id="ord-growth" class="growth-badge growth-neutral">-</span>
+            <span class="text-xs">transaksi valid</span>
+        </div>
       </div>
+
       <div class="kpi">
         <div class="label">Items Terjual</div>
         <div class="value" id="kpi-items">0</div>
-        <div class="sub" id="kpi-items-sub">Qty total semua menu</div>
+        <div class="sub" id="kpi-items-sub">Qty total (Filter)</div>
       </div>
       <div class="kpi">
         <div class="label">AOV</div>
@@ -219,7 +246,7 @@
     <!-- Raw Transactions -->
     <div class="card">
       <h3>🧾 Transaksi (Ringkas)</h3>
-      <div class="text-xs text-slate-500 mb-3">Menampilkan transaksi dari koleksi <span class="font-mono bg-slate-100 px-1 rounded">completedOrders</span>.</div>
+      <div class="text-xs text-slate-500 mb-3">Menampilkan transaksi yang mengandung item sesuai filter.</div>
       <div class="overflow-x-auto" style="max-height: 320px; overflow-y:auto; border-radius: 14px;">
         <table class="table">
           <thead>
@@ -228,7 +255,7 @@
               <th style="width:90px;">Shift</th>
               <th>Meja / Pelanggan</th>
               <th style="width:120px;">Metode</th>
-              <th style="width:140px;" class="text-right">Total</th>
+              <th style="width:140px;" class="text-right">Total Order</th>
             </tr>
           </thead>
           <tbody id="txnTbody">
@@ -247,7 +274,7 @@
     import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
-    // ===== Firebase Config (dari file lama) =====
+    // ===== Firebase Config =====
     const firebaseConfig = {
       apiKey: "AIzaSyB0nHqdAw_dV9pHcQ_cSnWtNsn4CwwwUNc",
       authDomain: "payboss-cafe-system.firebaseapp.com",
@@ -267,6 +294,7 @@
     let filteredOrders = [];
 
     let currentFilter = 'today';
+    let currentCategory = 'All'; // Filter Kategori Baru
     let customRange = { start: null, end: null };
 
     let topChart = null;
@@ -304,7 +332,7 @@
       return 'Malam';
     }
 
-    // Heuristik kategori (bisa kamu edit sesuai menu PayBoss)
+    // Heuristik kategori
     const CATEGORY_RULES = [
       { key: 'Minuman - Coffee', test: /(espresso|americano|latte|capp|capuc|mocha|macchiato|coffee|kopi)/i },
       { key: 'Minuman - Non Coffee', test: /(matcha|taro|red velvet|coklat|chocolate|lemon tea|cookies|milk|susu)/i },
@@ -313,7 +341,6 @@
     ];
 
     function inferCategory(item) {
-      // Jika item sudah punya field category/type, pakai itu.
       const raw = (item && (item.category || item.type)) ? String(item.category || item.type) : '';
       if (raw.trim()) return raw;
       const name = String(item?.name || '');
@@ -332,7 +359,8 @@
     }
 
     function computeMetrics(orders) {
-      const totalOrders = orders.length;
+      const totalOrders = orders.length; // Will be recalculated based on filtered items presence
+      let filteredOrderCount = 0;
       let totalRevenue = 0;
       let totalQty = 0;
       let payQ = 0, payC = 0;
@@ -346,77 +374,158 @@
         const ts = Number(o?.timestamp || 0) || 0;
         if (!ts) return;
 
-        totalRevenue += total;
-        const p = normalizePayment(o?.paymentMethod);
-        if (p === 'qris') payQ += total; else payC += total;
-        shift[getShiftLabel(ts)] += total;
-
-        const items = safeItems(o);
-        let orderQty = 0;
-
-        // Attach rate: hitung txCount per item unik pada transaksi tersebut
-        const unique = new Map();
-        items.forEach(it => {
-          const key = it.name;
-          if (!unique.has(key)) unique.set(key, it);
+        // --- FILTERING LOGIC ---
+        const allItems = safeItems(o);
+        
+        // 1. Filter items based on Category
+        const relevantItems = allItems.filter(i => {
+            const cat = inferCategory(i);
+            if (currentCategory === 'All') return true;
+            if (currentCategory === 'Minuman' && (cat.startsWith('Minuman') || /coffee|non coffee|mocktail/i.test(cat))) return true;
+            return cat === currentCategory;
         });
 
-        items.forEach(it => {
-          const revenue = it.price > 0 ? it.qty * it.price : 0;
-          orderQty += it.qty;
+        // If order has no relevant items, skip completely for KPI calculation
+        if (relevantItems.length === 0) return;
+
+        filteredOrderCount++;
+
+        // 2. Calculate Revenue Share for Relevant Items
+        // If items have explicit prices, use them.
+        let relevantRevenue = 0;
+        const sumPrice = relevantItems.reduce((acc, i) => acc + (i.price * i.qty), 0);
+        
+        if (sumPrice > 0) {
+            relevantRevenue = sumPrice;
+        } else {
+            // Proration fallback if prices are missing/zero but Total exists
+            const allItemsQty = allItems.reduce((acc, i) => acc + i.qty, 0);
+            const relevantQty = relevantItems.reduce((acc, i) => acc + i.qty, 0);
+            if (allItemsQty > 0) {
+                relevantRevenue = total * (relevantQty / allItemsQty);
+            }
+        }
+
+        totalRevenue += relevantRevenue;
+        
+        // Payment Split (Prorated based on relevant revenue)
+        const p = normalizePayment(o?.paymentMethod);
+        if (p === 'qris') payQ += relevantRevenue; else payC += relevantRevenue;
+        
+        // Shift (Prorated)
+        shift[getShiftLabel(ts)] += relevantRevenue;
+
+        // 3. Aggregate Item Stats
+        // Used for uniqueness in attach rate within this filtered scope
+        const uniqueInOrder = new Map(); 
+
+        relevantItems.forEach(it => {
+          // Recalculate item specific revenue
+          let itemRev = 0;
+          if (it.price > 0) {
+              itemRev = it.qty * it.price;
+          } else {
+              // Fallback proration
+               const allItemsQty = allItems.reduce((acc, i) => acc + i.qty, 0);
+               if (allItemsQty > 0) itemRev = total * (it.qty / allItemsQty);
+          }
+
+          totalQty += it.qty;
 
           const cat = inferCategory(it);
           if (!itemAgg.has(it.name)) itemAgg.set(it.name, { name: it.name, qty: 0, revenue: 0, txCount: 0, category: cat });
           const row = itemAgg.get(it.name);
           row.qty += it.qty;
-          row.revenue += revenue;
-          // category: kalau sebelumnya 'Lainnya' lalu ketemu yg lebih spesifik, update
+          row.revenue += itemRev;
           if (row.category === 'Lainnya' && cat !== 'Lainnya') row.category = cat;
+          
+          if (!uniqueInOrder.has(it.name)) uniqueInOrder.set(it.name, true);
         });
 
-        unique.forEach((it, name) => {
-          if (!itemAgg.has(name)) itemAgg.set(name, { name, qty: 0, revenue: 0, txCount: 0, category: inferCategory(it) });
-          itemAgg.get(name).txCount += 1;
-        });
-
-        totalQty += orderQty;
-      });
-
-      // fallback revenue item jika price tidak tersedia: prorate dari total transaksi berdasarkan qty
-      // (tetap aman—tidak mengubah jika sudah ada revenue)
-      orders.forEach(o => {
-        const items = safeItems(o);
-        const total = Number(o?.total || 0) || 0;
-        const sumLine = items.reduce((a, it) => a + (it.price > 0 ? it.qty * it.price : 0), 0);
-        if (sumLine > 0 || total <= 0) return;
-
-        const sumQty = items.reduce((a, it) => a + it.qty, 0);
-        if (sumQty <= 0) return;
-
-        items.forEach(it => {
-          const row = itemAgg.get(it.name);
-          // hanya isi revenue jika masih nol
-          if (row && row.revenue === 0) row.revenue += (total * (it.qty / sumQty));
+        uniqueInOrder.forEach((_, name) => {
+           if (itemAgg.has(name)) itemAgg.get(name).txCount += 1;
         });
       });
 
       const items = Array.from(itemAgg.values()).map(r => ({
         ...r,
-        attachRate: totalOrders ? (r.txCount / totalOrders) : 0,
+        attachRate: filteredOrderCount ? (r.txCount / filteredOrderCount) : 0,
         revShare: totalRevenue ? (r.revenue / totalRevenue) : 0,
         avgPrice: r.qty ? (r.revenue / r.qty) : 0,
       }));
 
       return {
-        totalOrders,
+        totalOrders: filteredOrderCount, // Use filtered count
         totalRevenue,
         totalQty,
-        aov: totalOrders ? (totalRevenue / totalOrders) : 0,
-        itemsPerOrder: totalOrders ? (totalQty / totalOrders) : 0,
+        aov: filteredOrderCount ? (totalRevenue / filteredOrderCount) : 0,
+        itemsPerOrder: filteredOrderCount ? (totalQty / filteredOrderCount) : 0,
         payQ, payC,
         shift,
         items
       };
+    }
+
+    // ===== NEW: Growth Logic =====
+    function getPreviousRange(currentP, startC, endC) {
+      if (currentP === 'today') {
+        const prevStart = startC - (7 * DAY);
+        const prevEnd = endC - (7 * DAY);
+        return { start: prevStart, end: prevEnd, label: 'vs Minggu Lalu' };
+      }
+      if (currentP === 'week') {
+        const prevStart = startC - (7 * DAY);
+        const prevEnd = startC - DAY; 
+        return { start: prevStart, end: prevEnd, label: 'vs 7 Hari Lalu' };
+      }
+      if (currentP === 'month') {
+        const prevStart = startC - (30 * DAY);
+        const prevEnd = startC - DAY;
+        return { start: prevStart, end: prevEnd, label: 'vs 30 Hari Lalu' };
+      }
+      const duration = endC - startC;
+      const prevEnd = startC - DAY;
+      const prevStart = prevEnd - duration;
+      return { start: prevStart, end: prevEnd, label: 'vs Periode Lalu' };
+    }
+
+    function renderGrowth(currM, startC, endC) {
+      const { start, end, label } = getPreviousRange(currentFilter, startC, endC);
+      
+      const prevOrders = allOrders.filter(o => {
+        if (!o?.timestamp) return false;
+        const biz = getBizDate(o.timestamp);
+        return biz >= start && biz <= end;
+      });
+
+      // Compute metrics for previous period using SAME category filter
+      const prevM = computeMetrics(prevOrders);
+
+      // Revenue Growth
+      const revEl = document.getElementById('rev-growth');
+      if (prevM.totalRevenue === 0) {
+         revEl.innerHTML = currM.totalRevenue > 0 ? `▲ 100% ${label}` : `- ${label}`;
+         revEl.className = `growth-badge ${currM.totalRevenue > 0 ? 'growth-up' : 'growth-neutral'}`;
+      } else {
+         const diff = currM.totalRevenue - prevM.totalRevenue;
+         const pct = (diff / prevM.totalRevenue) * 100;
+         const isUp = diff >= 0;
+         revEl.innerHTML = `${isUp ? '▲' : '▼'} ${Math.abs(pct).toFixed(0)}% ${label}`;
+         revEl.className = `growth-badge ${isUp ? 'growth-up' : 'growth-down'}`;
+      }
+
+      // Order Growth
+      const ordEl = document.getElementById('ord-growth');
+      if (prevM.totalOrders === 0) {
+         ordEl.innerHTML = currM.totalOrders > 0 ? `▲ 100% ${label}` : `- ${label}`;
+         ordEl.className = `growth-badge ${currM.totalOrders > 0 ? 'growth-up' : 'growth-neutral'}`;
+      } else {
+         const diff = currM.totalOrders - prevM.totalOrders;
+         const pct = (diff / prevM.totalOrders) * 100;
+         const isUp = diff >= 0;
+         ordEl.innerHTML = `${isUp ? '▲' : '▼'} ${Math.abs(pct).toFixed(0)}% ${label}`;
+         ordEl.className = `growth-badge ${isUp ? 'growth-up' : 'growth-down'}`;
+      }
     }
 
     function filterOrders(period) {
@@ -452,9 +561,12 @@
       else label.textContent = `Range: ${fmtDate(startBiz)} — ${fmtDate(endBiz)}`;
 
       renderAll();
+      // Render Growth needs dates
+      const m = computeMetrics(filteredOrders);
+      renderGrowth(m, startBiz, endBiz);
     }
 
-    // ===== Rendering =====
+    // ===== Rendering KPIs (Updated) =====
     function renderKPIs(m) {
       document.getElementById('kpi-revenue').textContent = fmtRp(m.totalRevenue);
       document.getElementById('kpi-orders').textContent = (m.totalOrders || 0).toLocaleString('id-ID');
@@ -539,7 +651,7 @@
     function renderInsight(m, top, bottom) {
       const box = document.getElementById('insightBox');
       if (!m.totalOrders) {
-        box.innerHTML = '<div class="text-slate-400">Belum ada transaksi pada range ini.</div>';
+        box.innerHTML = '<div class="text-slate-400">Belum ada transaksi pada range/kategori ini.</div>';
         return;
       }
 
@@ -549,22 +661,19 @@
       const bottom5RevShare = bottom.slice(0,5).reduce((a,x)=>a + x.revShare, 0);
       const qPct = m.totalRevenue ? (m.payQ / m.totalRevenue) : 0;
       const peakShift = Object.entries(m.shift).sort((a,b)=>b[1]-a[1])[0];
-
-      // simple pairing suggestion: top drink + top food
       const topDrink = top.find(x => /^Minuman/i.test(x.category));
       const topFood = top.find(x => /^Makanan/i.test(x.category));
 
       box.innerHTML = `
         <div class="p-3 rounded-xl bg-indigo-50 border border-indigo-100">
-          <div class="font-extrabold text-indigo-900">Fokus Terlaris</div>
+          <div class="font-extrabold text-indigo-900">Fokus Terlaris (${currentCategory})</div>
           <div class="mt-1">Menu #1: <span class="font-extrabold">${escapeHtml(best?.name || '-')}</span> • Qty <span class="font-extrabold">${best?.qty || 0}</span> • Kontribusi revenue <span class="font-extrabold">${pct(best?.revShare || 0)}</span></div>
-          <div class="mt-1 text-xs text-indigo-700">5 menu teratas menyumbang <span class="font-extrabold">${pct(top5RevShare)}</span> dari total revenue.</div>
+          <div class="mt-1 text-xs text-indigo-700">5 menu teratas menyumbang <span class="font-extrabold">${pct(top5RevShare)}</span> dari total revenue kategori ini.</div>
         </div>
 
         <div class="p-3 rounded-xl bg-rose-50 border border-rose-100">
-          <div class="font-extrabold text-rose-900">Paling Tidak Laku</div>
+          <div class="font-extrabold text-rose-900">Paling Tidak Laku (${currentCategory})</div>
           <div class="mt-1">Menu terbawah: <span class="font-extrabold">${escapeHtml(worst?.name || '-')}</span> • Qty <span class="font-extrabold">${worst?.qty || 0}</span> • Attach rate <span class="font-extrabold">${pct(worst?.attachRate || 0)}</span></div>
-          <div class="mt-1 text-xs text-rose-700">5 menu terbawah hanya menyumbang <span class="font-extrabold">${pct(bottom5RevShare)}</span> dari total revenue → kandidat promo/bundling.</div>
         </div>
 
         <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
@@ -572,25 +681,31 @@
           <div class="mt-1">Metode bayar dominan: <span class="font-extrabold">${pct(qPct)}</span> QRIS.</div>
           <div class="mt-1">Shift paling ramai: <span class="font-extrabold">${peakShift?.[0] || '-'}</span> (${fmtRp(peakShift?.[1] || 0)}).</div>
         </div>
-
-        <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-100">
-          <div class="font-extrabold text-emerald-900">Aksi Cepat (1 Minggu)</div>
-          <ul class="list-disc pl-5 mt-1 space-y-1">
-            <li>Pasang <span class="font-extrabold">"Recommended"</span> di kasir untuk 3 menu terbawah + beri script upsell.</li>
-            <li>Bundling: <span class="font-extrabold">${escapeHtml(topDrink?.name || 'minuman terlaris')}</span> + <span class="font-extrabold">${escapeHtml(topFood?.name || 'makanan terlaris')}</span> (harga paket).</li>
-            <li>Promo jam sepi untuk menu terbawah: diskon kecil, atau bonus topping.</li>
-          </ul>
-        </div>
       `;
     }
 
     function renderTransactions(orders) {
       const tbody = document.getElementById('txnTbody');
-      if (!orders.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">Belum ada transaksi…</td></tr>';
+      
+      // Filter transactions to show only those that contribute to the current metric
+      const activeTxns = orders.filter(o => {
+         // Re-use safeItems logic to see if this order has relevant items
+         const allItems = safeItems(o);
+         const relevant = allItems.filter(i => {
+             const cat = inferCategory(i);
+             if (currentCategory === 'All') return true;
+             if (currentCategory === 'Minuman' && (cat.startsWith('Minuman') || /coffee|non coffee|mocktail/i.test(cat))) return true;
+             return cat === currentCategory;
+         });
+         return relevant.length > 0;
+      });
+
+      if (!activeTxns.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">Belum ada transaksi sesuai filter…</td></tr>';
         return;
       }
-      const sorted = [...orders].sort((a,b) => b.timestamp - a.timestamp).slice(0, 120);
+      
+      const sorted = [...activeTxns].sort((a,b) => b.timestamp - a.timestamp).slice(0, 120);
       tbody.innerHTML = sorted.map(o => {
         const d = new Date(o.timestamp);
         const timeStr = d.toLocaleString('id-ID', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
@@ -615,7 +730,6 @@
       const m = computeMetrics(filteredOrders);
       const search = String(document.getElementById('search-item').value || '').trim().toLowerCase();
 
-      // Sort by qty desc for top; qty asc for bottom
       const itemsAll = m.items
         .filter(x => x.name && (search ? x.name.toLowerCase().includes(search) : true))
         .filter(x => x.qty > 0);
@@ -623,7 +737,6 @@
       const top = [...itemsAll].sort((a,b)=>b.qty - a.qty || b.revenue - a.revenue).slice(0, 12);
       const bottom = [...itemsAll].sort((a,b)=>a.qty - b.qty || a.revenue - b.revenue).slice(0, 12);
 
-      // Tables
       const topT = document.getElementById('topTbody');
       const bottomT = document.getElementById('bottomTbody');
 
@@ -664,7 +777,6 @@
         }).join('');
       }
 
-      // Charts & insight use non-search-filtered items (biar insight stabil)
       const itemsNoSearch = m.items.filter(x => x.qty > 0);
       const topNoSearch = [...itemsNoSearch].sort((a,b)=>b.qty - a.qty || b.revenue - a.revenue).slice(0, 10);
       const bottomNoSearch = [...itemsNoSearch].sort((a,b)=>a.qty - b.qty || a.revenue - b.revenue).slice(0, 10);
@@ -672,15 +784,7 @@
       renderCharts(topNoSearch, bottomNoSearch);
       renderInsight(m, topNoSearch, bottomNoSearch);
 
-      // keep metrics for export
       window.__last_metrics = { m, top: topNoSearch, bottom: bottomNoSearch };
-    }
-
-    function renderAll() {
-      const m = computeMetrics(filteredOrders);
-      renderKPIs(m);
-      renderTables();
-      renderTransactions(filteredOrders);
     }
 
     // ===== CSV Export =====
@@ -689,7 +793,6 @@
       const m = snap?.m;
       if (!m || !filteredOrders.length) return alert('Belum ada data untuk diexport.');
 
-      // Sheet 1: Item performance
       let csv = 'Type,Rank,Menu,Kategori,Qty,Revenue,RevShare,TxCount,AttachRate,AvgPrice\n';
 
       const itemsSortedTop = [...m.items].filter(x => x.qty > 0).sort((a,b)=>b.qty - a.qty || b.revenue - a.revenue);
@@ -702,7 +805,6 @@
         csv += `BOTTOM,${i+1},"${x.name.replace(/"/g,'""')}","${x.category}",${x.qty},${Math.round(x.revenue)},${(x.revShare*100).toFixed(2)}%,${x.txCount},${(x.attachRate*100).toFixed(2)}%,${Math.round(x.avgPrice)}\n`;
       });
 
-      // Summary footer
       csv += `\nSUMMARY,,,,,,,,,\n`;
       csv += `TotalRevenue,${Math.round(m.totalRevenue)}\n`;
       csv += `TotalOrders,${m.totalOrders}\n`;
@@ -732,6 +834,14 @@
         btn.classList.remove('text-slate-600');
       }
       filterOrders(filter);
+    };
+
+    window.setCategory = (cat) => {
+        currentCategory = cat;
+        // Re-render everything with new category filter (using current time filter)
+        renderAll();
+        // Also re-render growth because it needs to re-calculate based on category
+        filterOrders(currentFilter);
     };
 
     window.applyCustomRange = () => {
@@ -769,7 +879,6 @@
 
     window.doLogout = () => signOut(auth);
 
-    // ===== XSS Safe =====
     function escapeHtml(str) {
       return String(str || '')
         .replace(/&/g, '&amp;')
@@ -777,6 +886,13 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+    }
+
+    function renderAll() {
+      const m = computeMetrics(filteredOrders);
+      renderKPIs(m);
+      renderTables();
+      renderTransactions(filteredOrders);
     }
 
     // ===== Boot =====
@@ -788,7 +904,6 @@
         overlay.style.display = 'none';
         dashboard.style.display = 'block';
 
-        // Listener: completedOrders
         onSnapshot(collection(db, 'completedOrders'), (snap) => {
           allOrders = snap.docs.map(d => {
             const data = d.data();
@@ -796,8 +911,6 @@
             return { ...data, timestamp: ts };
           }).filter(o => o.timestamp && (Number(o.total || 0) >= 0));
 
-          // default range label setup
-          // set default date inputs (today)
           const now = new Date();
           const yyyy = now.getFullYear();
           const mm = String(now.getMonth()+1).padStart(2,'0');
