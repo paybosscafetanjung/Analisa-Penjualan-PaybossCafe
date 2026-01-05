@@ -1,0 +1,822 @@
+<!doctype html>
+<html lang="id" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PayBoss | Sales Insights Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; background: linear-gradient(135deg,#667eea 0%, #7c3aed 45%, #0ea5e9 100%); min-height: 100vh; }
+    * { box-sizing: border-box; }
+
+    .dashboard-container { max-width: 1280px; margin: 0 auto; padding: 20px; display: none; }
+
+    /* Login */
+    #auth-overlay { position: fixed; inset: 0; background: #f8fafc; z-index: 50; display: flex; justify-content: center; align-items: center; }
+    .login-box { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.12); width: 92%; max-width: 420px; text-align: center; }
+    .input-field { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 12px; margin-bottom: 14px; outline: none; transition: border 0.2s; }
+    .input-field:focus { border-color: #6366f1; }
+    .btn-primary { width: 100%; padding: 12px; background: #4f46e5; color: white; border-radius: 12px; font-weight: 800; transition: background 0.2s; }
+    .btn-primary:hover { background: #4338ca; }
+
+    /* Cards */
+    .card { background: rgba(255,255,255,0.96); padding: 18px; border-radius: 18px; box-shadow: 0 10px 18px rgba(15,23,42,0.08); border: 1px solid rgba(226,232,240,0.9); }
+    .card h3 { color: #0f172a; font-size: 14px; font-weight: 900; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; letter-spacing: -0.2px; }
+    .card h3::before { content: ''; display: inline-block; width: 4px; height: 16px; background: #6366f1; border-radius: 999px; }
+
+    .kpi { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.22); backdrop-filter: blur(10px); border-radius: 18px; padding: 16px; color: white; }
+    .kpi .label { font-size: 12px; opacity: 0.85; font-weight: 700; }
+    .kpi .value { font-size: 22px; font-weight: 900; letter-spacing: -0.3px; margin-top: 4px; }
+    .kpi .sub { font-size: 12px; opacity: 0.9; margin-top: 6px; }
+
+    .chart-box { height: 260px; position: relative; width: 100%; }
+
+    .table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+    .table th { text-align: left; padding: 12px; background: #f8fafc; color: #64748b; font-weight: 900; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; }
+    .table td { padding: 12px; border-bottom: 1px solid #f1f5f9; color: #0f172a; }
+    .table tr:hover td { background: #f8fafc; }
+
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 900; }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; background: #ef4444; color: white; padding: 14px 18px; border-radius: 12px; display: none; z-index: 100; box-shadow: 0 10px 20px rgba(0,0,0,0.2); max-width: 420px; }
+    .toast.show { display: block; animation: slideUp 0.2s ease; }
+    @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  </style>
+</head>
+<body>
+
+  <!-- AUTH SCREEN -->
+  <div id="auth-overlay">
+    <div class="login-box">
+      <h2 class="text-2xl font-black text-slate-900 mb-1">Manager Access</h2>
+      <p class="text-slate-500 text-sm mb-6">PayBoss • Sales Insights Dashboard</p>
+      <form onsubmit="handleLogin(event)">
+        <input type="email" id="mgr-email" placeholder="Email" class="input-field" required>
+        <input type="password" id="mgr-pass" placeholder="Password" class="input-field" required>
+        <button type="submit" id="btn-login" class="btn-primary">Masuk</button>
+      </form>
+      <p id="login-error" class="text-red-500 text-xs mt-4 hidden"></p>
+    </div>
+  </div>
+
+  <!-- DASHBOARD UI -->
+  <div id="dashboard-ui" class="dashboard-container">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 text-white">
+      <div>
+        <h1 class="text-3xl font-black tracking-tight">📊 Sales Insights (Makanan & Minuman)</h1>
+        <p class="text-white/85 text-sm mt-1">Fokus: item paling laku & paling tidak laku, kontribusi revenue, pola pembayaran, dan ringkasan shift.</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="downloadCSV()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl font-extrabold text-sm backdrop-blur-sm transition">📥 Export CSV</button>
+        <button onclick="doLogout()" class="bg-red-500/80 hover:bg-red-600/80 text-white px-4 py-2 rounded-xl font-extrabold text-sm backdrop-blur-sm transition">Logout</button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white/90 border border-white/60 backdrop-blur rounded-2xl p-3 shadow-sm mb-6">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div class="flex flex-wrap gap-2">
+          <button class="filter-btn px-4 py-2 rounded-xl text-sm font-extrabold bg-indigo-100 text-indigo-700" onclick="setFilter('today')" id="btn-today">Hari Ini</button>
+          <button class="filter-btn px-4 py-2 rounded-xl text-sm font-extrabold text-slate-600 hover:bg-slate-100" onclick="setFilter('week')" id="btn-week">7 Hari</button>
+          <button class="filter-btn px-4 py-2 rounded-xl text-sm font-extrabold text-slate-600 hover:bg-slate-100" onclick="setFilter('month')" id="btn-month">30 Hari</button>
+          <button class="filter-btn px-4 py-2 rounded-xl text-sm font-extrabold text-slate-600 hover:bg-slate-100" onclick="setFilter('custom')" id="btn-custom">Custom</button>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-2 md:items-center">
+          <div class="flex gap-2">
+            <input type="date" id="date-start" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700" />
+            <input type="date" id="date-end" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700" />
+          </div>
+          <button onclick="applyCustomRange()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-extrabold hover:bg-slate-800">Terapkan</button>
+          <div class="flex-1"></div>
+          <input id="search-item" oninput="renderTables()" placeholder="Cari nama menu…" class="w-full md:w-64 px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold" />
+        </div>
+      </div>
+
+      <div class="mt-3 text-xs font-semibold text-slate-500" id="range-label">Range: Hari ini</div>
+    </div>
+
+    <!-- KPI Row -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+      <div class="kpi">
+        <div class="label">Total Revenue</div>
+        <div class="value" id="kpi-revenue">Rp 0</div>
+        <div class="sub" id="kpi-revenue-sub">0% QRIS • 0% Cash</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Total Orders</div>
+        <div class="value" id="kpi-orders">0</div>
+        <div class="sub" id="kpi-orders-sub">0 transaksi valid</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Items Terjual</div>
+        <div class="value" id="kpi-items">0</div>
+        <div class="sub" id="kpi-items-sub">Qty total semua menu</div>
+      </div>
+      <div class="kpi">
+        <div class="label">AOV</div>
+        <div class="value" id="kpi-aov">Rp 0</div>
+        <div class="sub" id="kpi-aov-sub">Avg value per order</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Avg Items/Order</div>
+        <div class="value" id="kpi-ipo">0</div>
+        <div class="sub" id="kpi-ipo-sub">Rata-rata qty per transaksi</div>
+      </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+
+      <!-- Top Sellers -->
+      <div class="card lg:col-span-2">
+        <h3>🔥 Top Sellers (Qty & Revenue)</h3>
+        <div class="chart-box"><canvas id="topChart"></canvas></div>
+        <div class="mt-4 overflow-x-auto" style="max-height: 360px; overflow-y:auto; border-radius: 14px;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width:54px;">#</th>
+                <th>Menu</th>
+                <th style="width:140px;">Kategori</th>
+                <th style="width:90px;">Qty</th>
+                <th style="width:140px;">Revenue</th>
+                <th style="width:130px;">Attach Rate</th>
+              </tr>
+            </thead>
+            <tbody id="topTbody">
+              <tr><td colspan="6" class="text-center py-8 text-slate-400">Menunggu data…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Insight Panel -->
+      <div class="card">
+        <h3>🧠 Insight Cepat (Untuk Manager)</h3>
+        <div class="space-y-3 text-sm text-slate-700" id="insightBox">
+          <div class="text-slate-400">Menunggu data…</div>
+        </div>
+      </div>
+
+      <!-- Bottom Sellers -->
+      <div class="card lg:col-span-2">
+        <h3>🐢 Bottom Sellers (Paling Tidak Laku)</h3>
+        <div class="chart-box"><canvas id="bottomChart"></canvas></div>
+        <div class="mt-4 overflow-x-auto" style="max-height: 360px; overflow-y:auto; border-radius: 14px;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width:54px;">#</th>
+                <th>Menu</th>
+                <th style="width:140px;">Kategori</th>
+                <th style="width:90px;">Qty</th>
+                <th style="width:140px;">Revenue</th>
+                <th style="width:130px;">Saran</th>
+              </tr>
+            </thead>
+            <tbody id="bottomTbody">
+              <tr><td colspan="6" class="text-center py-8 text-slate-400">Menunggu data…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Shift + Payment Split -->
+      <div class="card">
+        <h3>💳 Payment Split & Shift</h3>
+        <div class="grid grid-cols-1 gap-3">
+          <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50">
+            <div class="flex items-center justify-between">
+              <div class="font-extrabold text-slate-900">Payment Split</div>
+              <span class="pill bg-indigo-100 text-indigo-700" id="split-pill">0% QRIS</span>
+            </div>
+            <div class="mt-3 space-y-2 text-sm">
+              <div class="flex justify-between"><span class="text-slate-600 font-semibold">QRIS / Transfer</span><span class="font-extrabold" id="split-q">Rp 0</span></div>
+              <div class="flex justify-between"><span class="text-slate-600 font-semibold">Cash</span><span class="font-extrabold" id="split-c">Rp 0</span></div>
+              <div class="border-t pt-2 flex justify-between"><span class="text-slate-600 font-semibold">Total</span><span class="font-extrabold" id="split-t">Rp 0</span></div>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-2xl border border-slate-200 bg-white">
+            <div class="font-extrabold text-slate-900 mb-2">Ringkasan Shift</div>
+            <div class="text-xs text-slate-500 mb-3">00–08 (Pagi) • 08–16 (Siang) • 16–24 (Malam)</div>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between"><span class="font-semibold text-slate-600">Pagi</span><span class="font-extrabold" id="shift-pagi">Rp 0</span></div>
+              <div class="flex justify-between"><span class="font-semibold text-slate-600">Siang</span><span class="font-extrabold" id="shift-siang">Rp 0</span></div>
+              <div class="flex justify-between"><span class="font-semibold text-slate-600">Malam</span><span class="font-extrabold" id="shift-malam">Rp 0</span></div>
+              <div class="border-t pt-2 flex justify-between"><span class="font-semibold text-slate-600">Total</span><span class="font-extrabold" id="shift-total">Rp 0</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Raw Transactions -->
+    <div class="card">
+      <h3>🧾 Transaksi (Ringkas)</h3>
+      <div class="text-xs text-slate-500 mb-3">Menampilkan transaksi dari koleksi <span class="font-mono bg-slate-100 px-1 rounded">completedOrders</span>.</div>
+      <div class="overflow-x-auto" style="max-height: 320px; overflow-y:auto; border-radius: 14px;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:140px;">Waktu</th>
+              <th style="width:90px;">Shift</th>
+              <th>Meja / Pelanggan</th>
+              <th style="width:120px;">Metode</th>
+              <th style="width:140px;" class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody id="txnTbody">
+            <tr><td colspan="5" class="text-center py-8 text-slate-400">Menunggu data…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="toast" class="toast">Error</div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+    import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+
+    // ===== Firebase Config (dari file lama) =====
+    const firebaseConfig = {
+      apiKey: "AIzaSyB0nHqdAw_dV9pHcQ_cSnWtNsn4CwwwUNc",
+      authDomain: "payboss-cafe-system.firebaseapp.com",
+      projectId: "payboss-cafe-system",
+      storageBucket: "payboss-cafe-system.firebasestorage.app",
+      messagingSenderId: "570523503793",
+      appId: "1:570523503793:web:0a7ba7ce751eb95a3f6690",
+      measurementId: "G-H1NJ369HE9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // ===== State =====
+    let allOrders = [];
+    let filteredOrders = [];
+
+    let currentFilter = 'today';
+    let customRange = { start: null, end: null };
+
+    let topChart = null;
+    let bottomChart = null;
+
+    // ===== Helpers =====
+    const DAY = 86400000;
+
+    function showError(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 4500);
+    }
+
+    function fmtRp(n) { return 'Rp ' + (Math.round(n || 0)).toLocaleString('id-ID'); }
+    function pct(x) { return (isFinite(x) ? (x * 100).toFixed(1) : '0.0') + '%'; }
+
+    function getBizDate(ts) {
+      const d = new Date(ts);
+      d.setHours(0,0,0,0);
+      return d.getTime();
+    }
+
+    function normalizePayment(pm) {
+      const s = String(pm || '').toLowerCase();
+      if (s.includes('qris') || s.includes('transfer') || s.includes('ovo') || s.includes('gopay') || s.includes('dana')) return 'qris';
+      return 'cash';
+    }
+
+    function getShiftLabel(ts) {
+      const h = new Date(ts).getHours();
+      if (h >= 0 && h < 8) return 'Pagi';
+      if (h >= 8 && h < 16) return 'Siang';
+      return 'Malam';
+    }
+
+    // Heuristik kategori (bisa kamu edit sesuai menu PayBoss)
+    const CATEGORY_RULES = [
+      { key: 'Minuman - Coffee', test: /(espresso|americano|latte|capp|capuc|mocha|macchiato|coffee|kopi)/i },
+      { key: 'Minuman - Non Coffee', test: /(matcha|taro|red velvet|coklat|chocolate|lemon tea|cookies|milk|susu)/i },
+      { key: 'Minuman - Mocktail', test: /(mocktail|soda|sparkling|yakult|mango|lychee|blue ocean)/i },
+      { key: 'Makanan', test: /(nasi|ayam|mie|pasta|kentang|snack|roti|toast|burger|sosis|dimsum|pisang|kue|cake)/i },
+    ];
+
+    function inferCategory(item) {
+      // Jika item sudah punya field category/type, pakai itu.
+      const raw = (item && (item.category || item.type)) ? String(item.category || item.type) : '';
+      if (raw.trim()) return raw;
+      const name = String(item?.name || '');
+      for (const r of CATEGORY_RULES) if (r.test.test(name)) return r.key;
+      return 'Lainnya';
+    }
+
+    function safeItems(order) {
+      const items = Array.isArray(order?.items) ? order.items : [];
+      return items.map(i => ({
+        name: String(i?.name || '-').trim(),
+        qty: Number(i?.qty || 0) || 0,
+        price: Number(i?.price || i?.unitPrice || 0) || 0,
+        category: i?.category || i?.type || ''
+      })).filter(i => i.name && i.qty > 0);
+    }
+
+    function computeMetrics(orders) {
+      const totalOrders = orders.length;
+      let totalRevenue = 0;
+      let totalQty = 0;
+      let payQ = 0, payC = 0;
+      const shift = { Pagi: 0, Siang: 0, Malam: 0 };
+
+      // itemAgg: name -> { qty, revenue, txCount, category }
+      const itemAgg = new Map();
+
+      orders.forEach(o => {
+        const total = Number(o?.total || 0) || 0;
+        const ts = Number(o?.timestamp || 0) || 0;
+        if (!ts) return;
+
+        totalRevenue += total;
+        const p = normalizePayment(o?.paymentMethod);
+        if (p === 'qris') payQ += total; else payC += total;
+        shift[getShiftLabel(ts)] += total;
+
+        const items = safeItems(o);
+        let orderQty = 0;
+
+        // Attach rate: hitung txCount per item unik pada transaksi tersebut
+        const unique = new Map();
+        items.forEach(it => {
+          const key = it.name;
+          if (!unique.has(key)) unique.set(key, it);
+        });
+
+        items.forEach(it => {
+          const revenue = it.price > 0 ? it.qty * it.price : 0;
+          orderQty += it.qty;
+
+          const cat = inferCategory(it);
+          if (!itemAgg.has(it.name)) itemAgg.set(it.name, { name: it.name, qty: 0, revenue: 0, txCount: 0, category: cat });
+          const row = itemAgg.get(it.name);
+          row.qty += it.qty;
+          row.revenue += revenue;
+          // category: kalau sebelumnya 'Lainnya' lalu ketemu yg lebih spesifik, update
+          if (row.category === 'Lainnya' && cat !== 'Lainnya') row.category = cat;
+        });
+
+        unique.forEach((it, name) => {
+          if (!itemAgg.has(name)) itemAgg.set(name, { name, qty: 0, revenue: 0, txCount: 0, category: inferCategory(it) });
+          itemAgg.get(name).txCount += 1;
+        });
+
+        totalQty += orderQty;
+      });
+
+      // fallback revenue item jika price tidak tersedia: prorate dari total transaksi berdasarkan qty
+      // (tetap aman—tidak mengubah jika sudah ada revenue)
+      orders.forEach(o => {
+        const items = safeItems(o);
+        const total = Number(o?.total || 0) || 0;
+        const sumLine = items.reduce((a, it) => a + (it.price > 0 ? it.qty * it.price : 0), 0);
+        if (sumLine > 0 || total <= 0) return;
+
+        const sumQty = items.reduce((a, it) => a + it.qty, 0);
+        if (sumQty <= 0) return;
+
+        items.forEach(it => {
+          const row = itemAgg.get(it.name);
+          // hanya isi revenue jika masih nol
+          if (row && row.revenue === 0) row.revenue += (total * (it.qty / sumQty));
+        });
+      });
+
+      const items = Array.from(itemAgg.values()).map(r => ({
+        ...r,
+        attachRate: totalOrders ? (r.txCount / totalOrders) : 0,
+        revShare: totalRevenue ? (r.revenue / totalRevenue) : 0,
+        avgPrice: r.qty ? (r.revenue / r.qty) : 0,
+      }));
+
+      return {
+        totalOrders,
+        totalRevenue,
+        totalQty,
+        aov: totalOrders ? (totalRevenue / totalOrders) : 0,
+        itemsPerOrder: totalOrders ? (totalQty / totalOrders) : 0,
+        payQ, payC,
+        shift,
+        items
+      };
+    }
+
+    function filterOrders(period) {
+      const now = new Date();
+      const today = getBizDate(now.getTime());
+
+      let startBiz = null;
+      let endBiz = null;
+
+      if (period === 'today') {
+        startBiz = today;
+        endBiz = today;
+      } else if (period === 'week') {
+        startBiz = today - 6 * DAY;
+        endBiz = today;
+      } else if (period === 'month') {
+        startBiz = today - 29 * DAY;
+        endBiz = today;
+      } else if (period === 'custom') {
+        startBiz = customRange.start ?? today;
+        endBiz = customRange.end ?? today;
+      }
+
+      filteredOrders = allOrders.filter(o => {
+        if (!o?.timestamp) return false;
+        const biz = getBizDate(o.timestamp);
+        return biz >= startBiz && biz <= endBiz;
+      });
+
+      const label = document.getElementById('range-label');
+      const fmtDate = (ms) => new Date(ms).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
+      if (period === 'today') label.textContent = 'Range: Hari ini';
+      else label.textContent = `Range: ${fmtDate(startBiz)} — ${fmtDate(endBiz)}`;
+
+      renderAll();
+    }
+
+    // ===== Rendering =====
+    function renderKPIs(m) {
+      document.getElementById('kpi-revenue').textContent = fmtRp(m.totalRevenue);
+      document.getElementById('kpi-orders').textContent = (m.totalOrders || 0).toLocaleString('id-ID');
+      document.getElementById('kpi-items').textContent = (m.totalQty || 0).toLocaleString('id-ID');
+      document.getElementById('kpi-aov').textContent = fmtRp(m.aov);
+      document.getElementById('kpi-ipo').textContent = (m.itemsPerOrder || 0).toFixed(2);
+
+      const qPct = m.totalRevenue ? (m.payQ / m.totalRevenue) : 0;
+      const cPct = m.totalRevenue ? (m.payC / m.totalRevenue) : 0;
+      document.getElementById('kpi-revenue-sub').textContent = `${pct(qPct)} QRIS • ${pct(cPct)} Cash`;
+
+      document.getElementById('split-q').textContent = fmtRp(m.payQ);
+      document.getElementById('split-c').textContent = fmtRp(m.payC);
+      document.getElementById('split-t').textContent = fmtRp(m.totalRevenue);
+      document.getElementById('split-pill').textContent = `${pct(qPct)} QRIS`;
+
+      document.getElementById('shift-pagi').textContent = fmtRp(m.shift.Pagi);
+      document.getElementById('shift-siang').textContent = fmtRp(m.shift.Siang);
+      document.getElementById('shift-malam').textContent = fmtRp(m.shift.Malam);
+      document.getElementById('shift-total').textContent = fmtRp(m.totalRevenue);
+    }
+
+    function buildSuggestion(item, topBest) {
+      const name = item.name;
+      const cat = item.category;
+      const isDrink = /^Minuman/i.test(cat) || /coffee|non coffee|mocktail/i.test(cat);
+      const best = topBest?.name ? topBest.name : 'menu terlaris';
+      if (item.qty <= 1) return `Bundling dgn ${best}`;
+      if (item.attachRate < 0.1) return 'Tampilkan di rekomendasi kasir';
+      if (isDrink) return 'Promo jam sepi';
+      return 'Jadikan add-on';
+    }
+
+    function renderCharts(top, bottom) {
+      const topCtx = document.getElementById('topChart');
+      const bottomCtx = document.getElementById('bottomChart');
+
+      const topLabels = top.map(x => x.name);
+      const topQty = top.map(x => x.qty);
+
+      const bottomLabels = bottom.map(x => x.name);
+      const bottomQty = bottom.map(x => x.qty);
+
+      if (topChart) topChart.destroy();
+      if (bottomChart) bottomChart.destroy();
+
+      topChart = new Chart(topCtx, {
+        type: 'bar',
+        data: {
+          labels: topLabels,
+          datasets: [{ label: 'Qty Terjual', data: topQty, backgroundColor: '#4f46e5', borderRadius: 8 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Qty: ${ctx.raw}` } } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#e2e8f0' } },
+            x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }
+          }
+        }
+      });
+
+      bottomChart = new Chart(bottomCtx, {
+        type: 'bar',
+        data: {
+          labels: bottomLabels,
+          datasets: [{ label: 'Qty Terjual', data: bottomQty, backgroundColor: '#ef4444', borderRadius: 8 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Qty: ${ctx.raw}` } } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#e2e8f0' } },
+            x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }
+          }
+        }
+      });
+    }
+
+    function renderInsight(m, top, bottom) {
+      const box = document.getElementById('insightBox');
+      if (!m.totalOrders) {
+        box.innerHTML = '<div class="text-slate-400">Belum ada transaksi pada range ini.</div>';
+        return;
+      }
+
+      const best = top[0];
+      const worst = bottom[0];
+      const top5RevShare = top.slice(0,5).reduce((a,x)=>a + x.revShare, 0);
+      const bottom5RevShare = bottom.slice(0,5).reduce((a,x)=>a + x.revShare, 0);
+      const qPct = m.totalRevenue ? (m.payQ / m.totalRevenue) : 0;
+      const peakShift = Object.entries(m.shift).sort((a,b)=>b[1]-a[1])[0];
+
+      // simple pairing suggestion: top drink + top food
+      const topDrink = top.find(x => /^Minuman/i.test(x.category));
+      const topFood = top.find(x => /^Makanan/i.test(x.category));
+
+      box.innerHTML = `
+        <div class="p-3 rounded-xl bg-indigo-50 border border-indigo-100">
+          <div class="font-extrabold text-indigo-900">Fokus Terlaris</div>
+          <div class="mt-1">Menu #1: <span class="font-extrabold">${escapeHtml(best?.name || '-')}</span> • Qty <span class="font-extrabold">${best?.qty || 0}</span> • Kontribusi revenue <span class="font-extrabold">${pct(best?.revShare || 0)}</span></div>
+          <div class="mt-1 text-xs text-indigo-700">5 menu teratas menyumbang <span class="font-extrabold">${pct(top5RevShare)}</span> dari total revenue.</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-rose-50 border border-rose-100">
+          <div class="font-extrabold text-rose-900">Paling Tidak Laku</div>
+          <div class="mt-1">Menu terbawah: <span class="font-extrabold">${escapeHtml(worst?.name || '-')}</span> • Qty <span class="font-extrabold">${worst?.qty || 0}</span> • Attach rate <span class="font-extrabold">${pct(worst?.attachRate || 0)}</span></div>
+          <div class="mt-1 text-xs text-rose-700">5 menu terbawah hanya menyumbang <span class="font-extrabold">${pct(bottom5RevShare)}</span> dari total revenue → kandidat promo/bundling.</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+          <div class="font-extrabold text-slate-900">Operasional</div>
+          <div class="mt-1">Metode bayar dominan: <span class="font-extrabold">${pct(qPct)}</span> QRIS.</div>
+          <div class="mt-1">Shift paling ramai: <span class="font-extrabold">${peakShift?.[0] || '-'}</span> (${fmtRp(peakShift?.[1] || 0)}).</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+          <div class="font-extrabold text-emerald-900">Aksi Cepat (1 Minggu)</div>
+          <ul class="list-disc pl-5 mt-1 space-y-1">
+            <li>Pasang <span class="font-extrabold">"Recommended"</span> di kasir untuk 3 menu terbawah + beri script upsell.</li>
+            <li>Bundling: <span class="font-extrabold">${escapeHtml(topDrink?.name || 'minuman terlaris')}</span> + <span class="font-extrabold">${escapeHtml(topFood?.name || 'makanan terlaris')}</span> (harga paket).</li>
+            <li>Promo jam sepi untuk menu terbawah: diskon kecil, atau bonus topping.</li>
+          </ul>
+        </div>
+      `;
+    }
+
+    function renderTransactions(orders) {
+      const tbody = document.getElementById('txnTbody');
+      if (!orders.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">Belum ada transaksi…</td></tr>';
+        return;
+      }
+      const sorted = [...orders].sort((a,b) => b.timestamp - a.timestamp).slice(0, 120);
+      tbody.innerHTML = sorted.map(o => {
+        const d = new Date(o.timestamp);
+        const timeStr = d.toLocaleString('id-ID', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+        const shift = getShiftLabel(o.timestamp);
+        const shiftCls = shift==='Pagi' ? 'bg-amber-100 text-amber-800' : shift==='Siang' ? 'bg-emerald-100 text-emerald-700' : 'bg-violet-100 text-violet-700';
+        const pay = normalizePayment(o.paymentMethod);
+        const payCls = pay==='qris' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700';
+        return `
+          <tr>
+            <td class="font-mono text-xs text-slate-500">${timeStr}</td>
+            <td><span class="pill ${shiftCls}">${shift}</span></td>
+            <td class="font-semibold text-slate-800">${escapeHtml(o.table || '-')}${o.customer ? ' / ' + escapeHtml(o.customer) : ''}</td>
+            <td><span class="pill ${payCls}">${(o.paymentMethod || (pay==='qris'?'QRIS':'CASH')).toString()}</span></td>
+            <td class="text-right font-extrabold">${fmtRp(o.total)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderTables() {
+      if (!filteredOrders) return;
+      const m = computeMetrics(filteredOrders);
+      const search = String(document.getElementById('search-item').value || '').trim().toLowerCase();
+
+      // Sort by qty desc for top; qty asc for bottom
+      const itemsAll = m.items
+        .filter(x => x.name && (search ? x.name.toLowerCase().includes(search) : true))
+        .filter(x => x.qty > 0);
+
+      const top = [...itemsAll].sort((a,b)=>b.qty - a.qty || b.revenue - a.revenue).slice(0, 12);
+      const bottom = [...itemsAll].sort((a,b)=>a.qty - b.qty || a.revenue - b.revenue).slice(0, 12);
+
+      // Tables
+      const topT = document.getElementById('topTbody');
+      const bottomT = document.getElementById('bottomTbody');
+
+      if (!top.length) {
+        topT.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-400">Belum ada data menu.</td></tr>';
+      } else {
+        topT.innerHTML = top.map((x, idx) => {
+          const catPill = /^Makanan/i.test(x.category) ? 'bg-amber-100 text-amber-800' : /^Minuman/i.test(x.category) ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700';
+          return `
+            <tr>
+              <td class="font-black text-slate-500">${idx + 1}</td>
+              <td class="font-extrabold">${escapeHtml(x.name)}</td>
+              <td><span class="pill ${catPill}">${escapeHtml(x.category)}</span></td>
+              <td class="font-extrabold">${x.qty}</td>
+              <td class="font-extrabold">${fmtRp(x.revenue)}</td>
+              <td><span class="pill bg-emerald-100 text-emerald-700">${pct(x.attachRate)}</span></td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      if (!bottom.length) {
+        bottomT.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-400">Belum ada data menu.</td></tr>';
+      } else {
+        bottomT.innerHTML = bottom.map((x, idx) => {
+          const catPill = /^Makanan/i.test(x.category) ? 'bg-amber-100 text-amber-800' : /^Minuman/i.test(x.category) ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700';
+          const saran = buildSuggestion(x, top[0]);
+          return `
+            <tr>
+              <td class="font-black text-slate-500">${idx + 1}</td>
+              <td class="font-extrabold">${escapeHtml(x.name)}</td>
+              <td><span class="pill ${catPill}">${escapeHtml(x.category)}</span></td>
+              <td class="font-extrabold">${x.qty}</td>
+              <td class="font-extrabold">${fmtRp(x.revenue)}</td>
+              <td><span class="pill bg-rose-100 text-rose-700">${escapeHtml(saran)}</span></td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Charts & insight use non-search-filtered items (biar insight stabil)
+      const itemsNoSearch = m.items.filter(x => x.qty > 0);
+      const topNoSearch = [...itemsNoSearch].sort((a,b)=>b.qty - a.qty || b.revenue - a.revenue).slice(0, 10);
+      const bottomNoSearch = [...itemsNoSearch].sort((a,b)=>a.qty - b.qty || a.revenue - b.revenue).slice(0, 10);
+
+      renderCharts(topNoSearch, bottomNoSearch);
+      renderInsight(m, topNoSearch, bottomNoSearch);
+
+      // keep metrics for export
+      window.__last_metrics = { m, top: topNoSearch, bottom: bottomNoSearch };
+    }
+
+    function renderAll() {
+      const m = computeMetrics(filteredOrders);
+      renderKPIs(m);
+      renderTables();
+      renderTransactions(filteredOrders);
+    }
+
+    // ===== CSV Export =====
+    window.downloadCSV = () => {
+      const snap = window.__last_metrics;
+      const m = snap?.m;
+      if (!m || !filteredOrders.length) return alert('Belum ada data untuk diexport.');
+
+      // Sheet 1: Item performance
+      let csv = 'Type,Rank,Menu,Kategori,Qty,Revenue,RevShare,TxCount,AttachRate,AvgPrice\n';
+
+      const itemsSortedTop = [...m.items].filter(x => x.qty > 0).sort((a,b)=>b.qty - a.qty || b.revenue - a.revenue);
+      const itemsSortedBottom = [...m.items].filter(x => x.qty > 0).sort((a,b)=>a.qty - b.qty || a.revenue - b.revenue);
+
+      itemsSortedTop.slice(0, 50).forEach((x, i) => {
+        csv += `TOP,${i+1},"${x.name.replace(/"/g,'""')}","${x.category}",${x.qty},${Math.round(x.revenue)},${(x.revShare*100).toFixed(2)}%,${x.txCount},${(x.attachRate*100).toFixed(2)}%,${Math.round(x.avgPrice)}\n`;
+      });
+      itemsSortedBottom.slice(0, 50).forEach((x, i) => {
+        csv += `BOTTOM,${i+1},"${x.name.replace(/"/g,'""')}","${x.category}",${x.qty},${Math.round(x.revenue)},${(x.revShare*100).toFixed(2)}%,${x.txCount},${(x.attachRate*100).toFixed(2)}%,${Math.round(x.avgPrice)}\n`;
+      });
+
+      // Summary footer
+      csv += `\nSUMMARY,,,,,,,,,\n`;
+      csv += `TotalRevenue,${Math.round(m.totalRevenue)}\n`;
+      csv += `TotalOrders,${m.totalOrders}\n`;
+      csv += `AOV,${Math.round(m.aov)}\n`;
+      csv += `PayQRIS,${Math.round(m.payQ)}\n`;
+      csv += `PayCash,${Math.round(m.payC)}\n`;
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PayBoss_SalesInsights_${currentFilter}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // ===== UI Actions =====
+    window.setFilter = (filter) => {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('bg-indigo-100','text-indigo-700');
+        btn.classList.add('text-slate-600');
+      });
+      const btn = document.getElementById(`btn-${filter}`);
+      if (btn) {
+        btn.classList.add('bg-indigo-100','text-indigo-700');
+        btn.classList.remove('text-slate-600');
+      }
+      filterOrders(filter);
+    };
+
+    window.applyCustomRange = () => {
+      const s = document.getElementById('date-start').value;
+      const e = document.getElementById('date-end').value;
+      if (!s || !e) return alert('Isi tanggal start & end.');
+      const start = new Date(s + 'T00:00:00').getTime();
+      const end = new Date(e + 'T00:00:00').getTime();
+      customRange.start = getBizDate(start);
+      customRange.end = getBizDate(end);
+      setFilter('custom');
+    };
+
+    // Auth handlers
+    window.handleLogin = async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('mgr-email').value;
+      const pass = document.getElementById('mgr-pass').value;
+      const err = document.getElementById('login-error');
+      const btn = document.getElementById('btn-login');
+
+      btn.textContent = 'Loading…';
+      btn.disabled = true;
+      err.classList.add('hidden');
+
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } catch (e) {
+        err.textContent = 'Login Gagal: ' + e.message;
+        err.classList.remove('hidden');
+        btn.textContent = 'Masuk';
+        btn.disabled = false;
+      }
+    };
+
+    window.doLogout = () => signOut(auth);
+
+    // ===== XSS Safe =====
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // ===== Boot =====
+    onAuthStateChanged(auth, (user) => {
+      const overlay = document.getElementById('auth-overlay');
+      const dashboard = document.getElementById('dashboard-ui');
+
+      if (user) {
+        overlay.style.display = 'none';
+        dashboard.style.display = 'block';
+
+        // Listener: completedOrders
+        onSnapshot(collection(db, 'completedOrders'), (snap) => {
+          allOrders = snap.docs.map(d => {
+            const data = d.data();
+            const ts = data.createdAt?.seconds ? data.createdAt.seconds * 1000 : (data.timestamp || Date.now());
+            return { ...data, timestamp: ts };
+          }).filter(o => o.timestamp && (Number(o.total || 0) >= 0));
+
+          // default range label setup
+          // set default date inputs (today)
+          const now = new Date();
+          const yyyy = now.getFullYear();
+          const mm = String(now.getMonth()+1).padStart(2,'0');
+          const dd = String(now.getDate()).padStart(2,'0');
+          document.getElementById('date-start').value = `${yyyy}-${mm}-${dd}`;
+          document.getElementById('date-end').value = `${yyyy}-${mm}-${dd}`;
+
+          filterOrders(currentFilter);
+        }, (err) => {
+          console.error(err);
+          showError('Gagal memuat data POS (completedOrders).');
+        });
+
+      } else {
+        overlay.style.display = 'flex';
+        dashboard.style.display = 'none';
+      }
+    });
+
+  </script>
+</body>
+</html>
