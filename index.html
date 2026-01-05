@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PayBoss | Sales Insights Dashboard</title>
+  <title>PayBoss | Simple Sales Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -83,8 +83,8 @@
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 text-white">
       <div>
-        <h1 class="text-3xl font-black tracking-tight">📊 Sales Insights (Makanan & Minuman)</h1>
-        <p class="text-white/85 text-sm mt-1">Fokus: item paling laku & paling tidak laku, kontribusi revenue, pola pembayaran, dan ringkasan shift.</p>
+        <h1 class="text-3xl font-black tracking-tight">📊 Sales Insights (Ringkas)</h1>
+        <p class="text-white/85 text-sm mt-1">Fokus: 3 Kategori Utama (Makanan, Minuman, Lain-lain)</p>
       </div>
       <div class="flex gap-2">
         <button onclick="downloadCSV()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl font-extrabold text-sm backdrop-blur-sm transition">📥 Export CSV</button>
@@ -104,14 +104,12 @@
 
         <div class="flex flex-col md:flex-row gap-2 md:items-center w-full md:w-auto">
           
-          <!-- Category Filter -->
+          <!-- Category Filter SIMPLE -->
           <select id="filter-category" onchange="setCategory(this.value)" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 bg-white">
             <option value="All">📁 Semua Kategori</option>
-            <option value="Makanan">🍛 Makanan</option>
-            <option value="Minuman">🥤 Minuman (All)</option>
-            <option value="Minuman - Coffee">☕ Minuman - Coffee</option>
-            <option value="Minuman - Non Coffee">🍵 Minuman - Non Coffee</option>
-            <option value="Minuman - Mocktail">🍹 Minuman - Mocktail</option>
+            <option value="Makanan">🍛 Makanan (Food/Snack/Pastry)</option>
+            <option value="Minuman">🥤 Minuman (Coffee/Non/Tea)</option>
+            <option value="Lain lain">📦 Lain lain</option>
           </select>
 
           <div class="flex gap-2">
@@ -360,7 +358,7 @@
     let filteredOrders = [];
 
     let currentFilter = 'today';
-    let currentCategory = 'All'; // Filter Kategori Baru
+    let currentCategory = 'All'; 
     let customRange = { start: null, end: null };
 
     let topChart = null;
@@ -399,39 +397,45 @@
       return 'Malam';
     }
 
-    // Heuristik kategori
+    // ===== HEURISTIK KATEGORI SIMPLE (3 KATEGORI UTAMA) =====
     const CATEGORY_RULES = [
-      // 1. Minuman - Coffee
-      { key: '☕ Minuman - Coffee', test: /(americano|caffe latte|coffe filter|cappucino|magic|split|vietnam drip)/i },
-      // 2. Minuman – Kopi Susu
-      { key: '☕ Minuman – Kopi Susu', test: /(banana|brown sugar|butterscotch|caramel|clasic almond|classic hazelnut|espresso block|espresso ball|kopi matcha|spanish latte|vanilla)/i },
-      // 3. Minuman – Non Coffee
-      { key: '☕ Minuman – Non Coffee', test: /(chocolate|crème & cookies|matcha|red velvet|taro)/i },
-      // 4. Minuman – Mocktail
-      { key: '☕ Minuman – Mocktail', test: /(dark moon|flora pop|honey smooth|kiwi kiss|lembayung senja|midnight bloom|ocean blue|peach island|summer glow|tropical zing)/i },
-      // 5. Minuman – TEA
-      { key: '☕ Minuman – TEA', test: /(lemon tea)/i },
-      // 6. Makanan- Food (Cek "Nasi Putih +" agar tidak tertukar dengan Nasi Putih biasa)
-      { key: 'Makanan- Food', test: /(kwetiau|mie nyemek|nasi goreng|nasi putih \+|nasi daun jeruk|beef steak|chicken steak|spaghetti|bebek goreng)/i },
-      // 7. Makanan- Snacks
-      { key: 'Makanan- Snacks', test: /(bapao|beef burger|bola bola|chicken wings|cireng|empek-empek|jamur crispy|kentang goreng|kulit ayam|mix platter|mix vegetable|pisang|roti|singkong|sotong|tahu|tempe|tofu|corn ribs|gyoza|sosis solo)/i },
-      // 8. Makanan- Pastry
-      { key: 'Makanan- Pastry', test: /(cheesecake|tiramisu|brownies|misu|mousse|cookies|donat|tom & jerry)/i },
-      // 9. Makanan- Dessert
-      { key: 'Makanan- Dessert', test: /(lychee sago|mango sago|smoothie)/i },
-      // 10. Lain lain (Termasuk Nasi Putih polos, rokok, dll)
-      { key: 'Lain lain', test: /(nasi putih|telur|aneka sauce|cleo|rokok|tissue)/i },
+      // 1. MINUMAN (Gabungan: Coffee, Kopi Susu, Non Coffee, Mocktail, Tea)
+      { 
+        key: 'Minuman', 
+        test: /(americano|latte|coffee|kopi|cappucino|magic|split|vietnam|banana|brown sugar|butterscotch|caramel|almond|hazelnut|espresso|vanilla|chocolate|cookies|matcha|red velvet|taro|mocktail|dark moon|flora|honey|kiwi|lembayung|midnight|ocean|peach|summer|tropical|lemon tea|tea)/i 
+      },
+      
+      // 2. MAKANAN (Gabungan: Food, Snacks, Pastry, Dessert)
+      // Perhatikan "nasi putih +" masuk sini (Food) karena mengandung "nasi", 
+      // tapi "nasi putih" polos akan kita tangkap di Lain-lain di bawah jika perlu, 
+      // namun karena regex ini scan berurutan, kita taruh Lain-lain dgn Nasi Putih polos DULUAN agar aman.
+      // ATAU: Kita masukkan item spesifik makanan di sini.
+      { 
+        key: 'Makanan', 
+        test: /(kwetiau|mie|nasi|steak|spaghetti|bebek|bapao|burger|bola|chicken|cireng|empek|jamur|kentang|kulit|mix|pisang|roti|singkong|sotong|tahu|tempe|tofu|corn|gyoza|sosis|cheesecake|tiramisu|brownies|misu|mousse|donat|tom & jerry|sago|smoothie)/i 
+      },
+
+      // 3. LAIN LAIN (Item spesifik non-menu utama)
+      // "Nasi Putih" (polos) ada di sini sesuai request
+      { 
+        key: 'Lain lain', 
+        test: /(telur|sauce|cleo|rokok|tissue|mineral|nasi putih$)/i 
+      }
     ];
 
     function inferCategory(item) {
-      // 1. Prioritaskan aturan nama (Regex) agar sesuai struktur baru
       const name = String(item?.name || '');
-      for (const r of CATEGORY_RULES) if (r.test.test(name)) return r.key;
-
-      // 2. Jika tidak ada yang cocok, baru pakai kategori dari database (jika ada)
-      const raw = (item && (item.category || item.type)) ? String(item.category || item.type) : '';
-      if (raw.trim()) return raw;
       
+      // Cek Lain-lain DULUAN (khusus Nasi Putih polos, Rokok, dll)
+      const lainRule = CATEGORY_RULES.find(r => r.key === 'Lain lain');
+      if (lainRule.test.test(name)) return 'Lain lain';
+
+      // Cek Makanan & Minuman
+      for (const r of CATEGORY_RULES) {
+         if (r.key !== 'Lain lain' && r.test.test(name)) return r.key;
+      }
+
+      // Fallback
       return 'Lain lain';
     }
 
@@ -468,7 +472,6 @@
         const relevantItems = allItems.filter(i => {
             const cat = inferCategory(i);
             if (currentCategory === 'All') return true;
-            if (currentCategory === 'Minuman' && (cat.startsWith('Minuman') || /coffee|non coffee|mocktail/i.test(cat))) return true;
             return cat === currentCategory;
         });
 
@@ -527,13 +530,13 @@
           // Update last sold if this order is more recent
           if (ts > row.lastSold) row.lastSold = ts;
 
-          if (row.category === 'Lainnya' && cat !== 'Lainnya') row.category = cat;
+          if (row.category === 'Lain lain' && cat !== 'Lain lain') row.category = cat;
           
           if (!uniqueInOrder.has(it.name)) uniqueInOrder.set(it.name, true);
         });
 
         uniqueInOrder.forEach((_, name) => {
-           if (itemAgg.has(name)) itemAgg.get(name).txCount += 1;
+            if (itemAgg.has(name)) itemAgg.get(name).txCount += 1;
         });
       });
 
@@ -682,7 +685,7 @@
     function buildSuggestion(item, topBest) {
       const name = item.name;
       const cat = item.category;
-      const isDrink = /^Minuman/i.test(cat) || /coffee|non coffee|mocktail/i.test(cat);
+      const isDrink = cat === 'Minuman';
       const best = topBest?.name ? topBest.name : 'menu terlaris';
       if (item.qty <= 1) return `Bundling dgn ${best}`;
       if (item.attachRate < 0.1) return 'Cek kualitas rasa';
@@ -888,11 +891,11 @@
                 }
              },
              scales: {
-                x: {
+                x: { 
                    title: { display: true, text: 'Popularitas (Qty Terjual)' },
                    grid: { color: (ctx) => ctx.tick.value === 0 ? '#000' : '#e2e8f0' } // simple grid
                 },
-                y: {
+                y: { 
                    title: { display: true, text: 'Profitabilitas (Revenue)' },
                    grid: { color: '#e2e8f0' }
                 }
@@ -914,8 +917,8 @@
       const bottom5RevShare = bottom.slice(0,5).reduce((a,x)=>a + x.revShare, 0);
       const qPct = m.totalRevenue ? (m.payQ / m.totalRevenue) : 0;
       const peakShift = Object.entries(m.shift).sort((a,b)=>b[1]-a[1])[0];
-      const topDrink = top.find(x => /^Minuman/i.test(x.category));
-      const topFood = top.find(x => /^Makanan/i.test(x.category));
+      const topDrink = top.find(x => x.category === 'Minuman');
+      const topFood = top.find(x => x.category === 'Makanan');
 
       box.innerHTML = `
         <div class="p-3 rounded-xl bg-indigo-50 border border-indigo-100">
@@ -947,7 +950,6 @@
          const relevant = allItems.filter(i => {
              const cat = inferCategory(i);
              if (currentCategory === 'All') return true;
-             if (currentCategory === 'Minuman' && (cat.startsWith('Minuman') || /coffee|non coffee|mocktail/i.test(cat))) return true;
              return cat === currentCategory;
          });
          return relevant.length > 0;
@@ -1005,7 +1007,7 @@
         topT.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-400">Belum ada data menu.</td></tr>';
       } else {
         topT.innerHTML = top.map((x, idx) => {
-          const catPill = /^Makanan/i.test(x.category) ? 'bg-amber-100 text-amber-800' : /^Minuman/i.test(x.category) ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700';
+          const catPill = x.category === 'Makanan' ? 'bg-amber-100 text-amber-800' : x.category === 'Minuman' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700';
           return `
             <tr>
               <td class="font-black text-slate-500">${idx + 1}</td>
@@ -1023,7 +1025,7 @@
         bottomT.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-400">Belum ada data menu.</td></tr>';
       } else {
         bottomT.innerHTML = bottom.map((x, idx) => {
-          const catPill = /^Makanan/i.test(x.category) ? 'bg-amber-100 text-amber-800' : /^Minuman/i.test(x.category) ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700';
+          const catPill = x.category === 'Makanan' ? 'bg-amber-100 text-amber-800' : x.category === 'Minuman' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700';
           const saran = buildSuggestion(x, top[0]);
           return `
             <tr>
