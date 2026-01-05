@@ -36,7 +36,8 @@
     .growth-down { background: #fee2e2; color: #b91c1c; } /* Red */
     .growth-neutral { background: #f1f5f9; color: #64748b; } /* Gray */
 
-    .chart-box { height: 260px; position: relative; width: 100%; }
+    /* Chart Box adjusted for bottom labels */
+    .chart-box { height: 320px; position: relative; width: 100%; }
 
     .table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
     .table th { text-align: left; padding: 12px; background: #f8fafc; color: #64748b; font-weight: 900; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; }
@@ -48,6 +49,9 @@
     .toast { position: fixed; bottom: 24px; right: 24px; background: #ef4444; color: white; padding: 14px 18px; border-radius: 12px; display: none; z-index: 100; box-shadow: 0 10px 20px rgba(0,0,0,0.2); max-width: 420px; }
     .toast.show { display: block; animation: slideUp 0.2s ease; }
     @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* Legend Dot */
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
   </style>
 </head>
 <body>
@@ -152,6 +156,34 @@
         <div class="label">Avg Items/Order</div>
         <div class="value" id="kpi-ipo">0</div>
         <div class="sub" id="kpi-ipo-sub">Rata-rata qty per transaksi</div>
+      </div>
+    </div>
+
+    <!-- Menu Matrix (Scatter Plot) -->
+    <div class="card mb-6">
+      <h3>🧩 Menu Engineering Matrix (Profit vs Popularity)</h3>
+      <div class="flex flex-col md:flex-row gap-4 h-full">
+        <div class="flex-1 h-[340px] relative">
+           <canvas id="matrixChart"></canvas>
+        </div>
+        <div class="md:w-64 flex flex-col justify-center space-y-4 text-xs">
+           <div class="p-3 bg-green-50 rounded-lg border border-green-100">
+             <div class="font-bold text-green-700 flex items-center"><span class="legend-dot bg-green-500"></span> STARS</div>
+             <div class="text-green-600 mt-1">High Popularity, High Revenue. Pertahankan kualitas & stok!</div>
+           </div>
+           <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+             <div class="font-bold text-yellow-700 flex items-center"><span class="legend-dot bg-yellow-400"></span> PLOWHORSES</div>
+             <div class="text-yellow-600 mt-1">High Popularity, Low Revenue. Coba naikkan harga margin sedikit.</div>
+           </div>
+           <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
+             <div class="font-bold text-blue-700 flex items-center"><span class="legend-dot bg-blue-400"></span> PUZZLES</div>
+             <div class="text-blue-600 mt-1">Low Popularity, High Revenue. Perlu promosi lebih gencar.</div>
+           </div>
+           <div class="p-3 bg-red-50 rounded-lg border border-red-100">
+             <div class="font-bold text-red-700 flex items-center"><span class="legend-dot bg-red-500"></span> DOGS</div>
+             <div class="text-red-600 mt-1">Low Popularity, Low Revenue. Pertimbangkan hapus dari menu.</div>
+           </div>
+        </div>
       </div>
     </div>
 
@@ -299,6 +331,7 @@
 
     let topChart = null;
     let bottomChart = null;
+    let matrixChart = null;
 
     // ===== Helpers =====
     const DAY = 86400000;
@@ -625,7 +658,14 @@
           plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Qty: ${ctx.raw}` } } },
           scales: {
             y: { beginAtZero: true, grid: { color: '#e2e8f0' } },
-            x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }
+            x: { 
+              grid: { display: false }, 
+              ticks: { 
+                autoSkip: false,  // Show all labels
+                maxRotation: 90, 
+                minRotation: 90   // Force vertical labels
+              } 
+            }
           }
         }
       });
@@ -642,10 +682,101 @@
           plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Qty: ${ctx.raw}` } } },
           scales: {
             y: { beginAtZero: true, grid: { color: '#e2e8f0' } },
-            x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }
+            x: { 
+              grid: { display: false }, 
+              ticks: { 
+                autoSkip: false,  // Show all labels
+                maxRotation: 90, 
+                minRotation: 90   // Force vertical labels
+              } 
+            }
           }
         }
       });
+    }
+
+    // ===== NEW: Render Matrix =====
+    function renderMatrix(items) {
+       const ctx = document.getElementById('matrixChart');
+       if (!ctx) return;
+       
+       if (matrixChart) matrixChart.destroy();
+
+       const activeItems = items.filter(x => x.qty > 0);
+       if(activeItems.length === 0) return; // No data
+
+       const totalQty = activeItems.reduce((a,b) => a + b.qty, 0);
+       const totalRev = activeItems.reduce((a,b) => a + b.revenue, 0);
+       const count = activeItems.length;
+       const avgQty = totalQty / count;
+       const avgRev = totalRev / count;
+
+       // Classify
+       const dataset = activeItems.map(item => {
+          let color = '#94a3b8'; // default
+          let cat = 'Unknown';
+          
+          if (item.qty >= avgQty && item.revenue >= avgRev) {
+             color = '#22c55e'; cat = 'Stars'; // Green
+          } else if (item.qty >= avgQty && item.revenue < avgRev) {
+             color = '#eab308'; cat = 'Plowhorses'; // Yellow
+          } else if (item.qty < avgQty && item.revenue >= avgRev) {
+             color = '#60a5fa'; cat = 'Puzzles'; // Blue
+          } else {
+             color = '#ef4444'; cat = 'Dogs'; // Red
+          }
+
+          return {
+             x: item.qty,
+             y: item.revenue,
+             name: item.name,
+             cat: cat,
+             color: color
+          };
+       });
+
+       matrixChart = new Chart(ctx, {
+          type: 'scatter',
+          data: {
+             datasets: [{
+                label: 'Menu Matrix',
+                data: dataset,
+                backgroundColor: dataset.map(d => d.color),
+                pointRadius: 6,
+                pointHoverRadius: 8
+             }]
+          },
+          options: {
+             responsive: true,
+             maintainAspectRatio: false,
+             plugins: {
+                legend: { display: false },
+                tooltip: {
+                   callbacks: {
+                      label: (ctx) => {
+                         const d = ctx.raw;
+                         return `${d.name} (${d.cat}): ${d.x} Qty, ${fmtRp(d.y)}`;
+                      }
+                   }
+                },
+                annotation: {
+                   // Note: Annotation plugin usually requires registration, 
+                   // simplifying by just drawing lines via plugin hook is complex without CDN.
+                   // We rely on color coding.
+                }
+             },
+             scales: {
+                x: {
+                   title: { display: true, text: 'Popularitas (Qty Terjual)' },
+                   grid: { color: (ctx) => ctx.tick.value === 0 ? '#000' : '#e2e8f0' } // simple grid
+                },
+                y: {
+                   title: { display: true, text: 'Profitabilitas (Revenue)' },
+                   grid: { color: '#e2e8f0' }
+                }
+             }
+          }
+       });
     }
 
     function renderInsight(m, top, bottom) {
@@ -782,6 +913,7 @@
       const bottomNoSearch = [...itemsNoSearch].sort((a,b)=>a.qty - b.qty || a.revenue - b.revenue).slice(0, 10);
 
       renderCharts(topNoSearch, bottomNoSearch);
+      renderMatrix(itemsNoSearch); // RENDER MATRIX HERE
       renderInsight(m, topNoSearch, bottomNoSearch);
 
       window.__last_metrics = { m, top: topNoSearch, bottom: bottomNoSearch };
