@@ -401,18 +401,38 @@
 
     // Heuristik kategori
     const CATEGORY_RULES = [
-      { key: 'Minuman - Coffee', test: /(espresso|americano|latte|capp|capuc|mocha|macchiato|coffee|kopi)/i },
-      { key: 'Minuman - Non Coffee', test: /(matcha|taro|red velvet|coklat|chocolate|lemon tea|cookies|milk|susu)/i },
-      { key: 'Minuman - Mocktail', test: /(mocktail|soda|sparkling|yakult|mango|lychee|blue ocean)/i },
-      { key: 'Makanan', test: /(nasi|ayam|mie|pasta|kentang|snack|roti|toast|burger|sosis|dimsum|pisang|kue|cake)/i },
+      // 1. Minuman - Coffee
+      { key: '☕ Minuman - Coffee', test: /(americano|caffe latte|coffe filter|cappucino|magic|split|vietnam drip)/i },
+      // 2. Minuman – Kopi Susu
+      { key: '☕ Minuman – Kopi Susu', test: /(banana|brown sugar|butterscotch|caramel|clasic almond|classic hazelnut|espresso block|espresso ball|kopi matcha|spanish latte|vanilla)/i },
+      // 3. Minuman – Non Coffee
+      { key: '☕ Minuman – Non Coffee', test: /(chocolate|crème & cookies|matcha|red velvet|taro)/i },
+      // 4. Minuman – Mocktail
+      { key: '☕ Minuman – Mocktail', test: /(dark moon|flora pop|honey smooth|kiwi kiss|lembayung senja|midnight bloom|ocean blue|peach island|summer glow|tropical zing)/i },
+      // 5. Minuman – TEA
+      { key: '☕ Minuman – TEA', test: /(lemon tea)/i },
+      // 6. Makanan- Food (Cek "Nasi Putih +" agar tidak tertukar dengan Nasi Putih biasa)
+      { key: 'Makanan- Food', test: /(kwetiau|mie nyemek|nasi goreng|nasi putih \+|nasi daun jeruk|beef steak|chicken steak|spaghetti|bebek goreng)/i },
+      // 7. Makanan- Snacks
+      { key: 'Makanan- Snacks', test: /(bapao|beef burger|bola bola|chicken wings|cireng|empek-empek|jamur crispy|kentang goreng|kulit ayam|mix platter|mix vegetable|pisang|roti|singkong|sotong|tahu|tempe|tofu|corn ribs|gyoza|sosis solo)/i },
+      // 8. Makanan- Pastry
+      { key: 'Makanan- Pastry', test: /(cheesecake|tiramisu|brownies|misu|mousse|cookies|donat|tom & jerry)/i },
+      // 9. Makanan- Dessert
+      { key: 'Makanan- Dessert', test: /(lychee sago|mango sago|smoothie)/i },
+      // 10. Lain lain (Termasuk Nasi Putih polos, rokok, dll)
+      { key: 'Lain lain', test: /(nasi putih|telur|aneka sauce|cleo|rokok|tissue)/i },
     ];
 
     function inferCategory(item) {
-      const raw = (item && (item.category || item.type)) ? String(item.category || item.type) : '';
-      if (raw.trim()) return raw;
+      // 1. Prioritaskan aturan nama (Regex) agar sesuai struktur baru
       const name = String(item?.name || '');
       for (const r of CATEGORY_RULES) if (r.test.test(name)) return r.key;
-      return 'Lainnya';
+
+      // 2. Jika tidak ada yang cocok, baru pakai kategori dari database (jika ada)
+      const raw = (item && (item.category || item.type)) ? String(item.category || item.type) : '';
+      if (raw.trim()) return raw;
+      
+      return 'Lain lain';
     }
 
     function safeItems(order) {
