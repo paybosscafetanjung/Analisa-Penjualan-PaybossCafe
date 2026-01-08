@@ -97,7 +97,7 @@
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 text-white">
       <div>
         <h1 class="text-3xl font-black tracking-tight">📊 Sales Insights (Super Manager)</h1>
-        <p class="text-white/85 text-sm mt-1">Fitur Lengkap: Matrix, Alert, Compare, Bundling & Drill-down.</p>
+        <p class="text-white/85 text-sm mt-1">Fitur Lengkap: Matrix Detail, Alert, Compare, Bundling & Drill-down.</p>
       </div>
       <div class="flex gap-2">
         <button onclick="fetchData()" id="btn-refresh" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-xl font-extrabold text-sm shadow-lg transition flex items-center gap-2">
@@ -219,7 +219,7 @@
     <!-- Menu Matrix -->
     <div class="card mb-6">
       <h3>🧩 Menu Engineering Matrix (Profit vs Popularity)</h3>
-      <div class="flex flex-col md:flex-row gap-4 h-full">
+      <div class="flex flex-col md:flex-row gap-4 mb-4">
         <div class="flex-1 h-[340px] relative">
           <canvas id="matrixChart"></canvas>
         </div>
@@ -240,10 +240,34 @@
             <div class="font-bold text-red-700 flex items-center"><span class="legend-dot" style="background:#ef4444"></span> DOGS</div>
             <div class="text-red-600 mt-1">Low Popularity, Low Revenue. Hapus/Bundling.</div>
           </div>
-          <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
-            <div class="font-extrabold text-slate-900">Tips</div>
-            <div class="text-slate-600 mt-1">Klik menu di tabel untuk <span class="font-black">detail lengkap</span>.</div>
+        </div>
+      </div>
+
+      <!-- NEW: Matrix Lists (Stars, Plowhorses, etc) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 border-t pt-4">
+        <div class="bg-green-50 p-3 rounded-xl border border-green-100">
+          <div class="font-extrabold text-green-800 text-xs mb-2 flex justify-between items-center">
+             <span>⭐ STARS</span> <span id="count-stars" class="bg-white px-1.5 py-0.5 rounded border border-green-200 text-[10px]">0</span>
           </div>
+          <div id="list-stars" class="space-y-1"></div>
+        </div>
+        <div class="bg-yellow-50 p-3 rounded-xl border border-yellow-100">
+          <div class="font-extrabold text-yellow-800 text-xs mb-2 flex justify-between items-center">
+             <span>🚜 PLOWHORSES</span> <span id="count-plow" class="bg-white px-1.5 py-0.5 rounded border border-yellow-200 text-[10px]">0</span>
+          </div>
+          <div id="list-plow" class="space-y-1"></div>
+        </div>
+        <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
+          <div class="font-extrabold text-blue-800 text-xs mb-2 flex justify-between items-center">
+             <span>🧩 PUZZLES</span> <span id="count-puzzle" class="bg-white px-1.5 py-0.5 rounded border border-blue-200 text-[10px]">0</span>
+          </div>
+          <div id="list-puzzle" class="space-y-1"></div>
+        </div>
+        <div class="bg-red-50 p-3 rounded-xl border border-red-100">
+          <div class="font-extrabold text-red-800 text-xs mb-2 flex justify-between items-center">
+             <span>🐕 DOGS</span> <span id="count-dog" class="bg-white px-1.5 py-0.5 rounded border border-red-200 text-[10px]">0</span>
+          </div>
+          <div id="list-dog" class="space-y-1"></div>
         </div>
       </div>
     </div>
@@ -312,7 +336,7 @@
                 <th>Menu</th>
                 <th style="width:140px;">Kategori</th>
                 <th style="width:90px;">Qty</th>
-                <th style="width:140px;">Revenue</th>
+                <th style="width:140px;">Terakhir Laku</th>
                 <th style="width:130px;">Saran</th>
               </tr>
             </thead>
@@ -609,6 +633,15 @@
       return 'Malam';
     }
 
+    function formatTimeAgo(ts) {
+        if (!ts) return 'Belum pernah';
+        const diff = Date.now() - ts;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        if (days === 0) return 'Hari ini';
+        if (days === 1) return 'Kemarin';
+        return `${days} hari lalu`;
+    }
+
     // ===== HEURISTIK KATEGORI SIMPLE (3 Kategori) =====
     const CATEGORY_RULES = [
       { key: 'Minuman', test: /(americano|latte|coffee|kopi|cappucino|magic|split|vietnam|banana|brown sugar|butterscotch|caramel|almond|hazelnut|espresso|vanilla|chocolate|cookies|matcha|red velvet|taro|mocktail|dark moon|flora|honey|kiwi|lembayung|midnight|ocean|peach|summer|tropical|lemon tea|tea)/i },
@@ -698,10 +731,11 @@
 
           totalQty += it.qty;
           const cat = inferCategory(it);
-          if (!itemAgg.has(it.name)) itemAgg.set(it.name, { name: it.name, qty: 0, revenue: 0, txCount: 0, category: cat });
+          if (!itemAgg.has(it.name)) itemAgg.set(it.name, { name: it.name, qty: 0, revenue: 0, txCount: 0, category: cat, lastSold: 0 });
           const row = itemAgg.get(it.name);
           row.qty += it.qty;
           row.revenue += itemRev;
+          if (info.ts > row.lastSold) row.lastSold = info.ts; // Track Last Sold
           unique.add(it.name);
         });
 
@@ -957,6 +991,7 @@
       const avgQty = active.reduce((a,b)=>a+b.qty,0)/active.length;
       const avgRev = active.reduce((a,b)=>a+b.revenue,0)/active.length;
 
+      // -- DATASET GENERATION --
       const dataset = active.map(item => {
         let color = '#94a3b8';
         if (item.qty >= avgQty && item.revenue >= avgRev) color = '#22c55e';
@@ -966,6 +1001,41 @@
         return { x: item.qty, y: Math.round(item.revenue), name: item.name, color };
       });
 
+      // -- NEW: POPULATE DETAIL LISTS --
+      const groups = { Stars: [], Plowhorses: [], Puzzles: [], Dogs: [] };
+      active.forEach(item => {
+        if (item.qty >= avgQty && item.revenue >= avgRev) groups.Stars.push(item);
+        else if (item.qty >= avgQty) groups.Plowhorses.push(item);
+        else if (item.revenue >= avgRev) groups.Puzzles.push(item);
+        else groups.Dogs.push(item);
+      });
+
+      const fillList = (id, countId, list) => {
+        const el = document.getElementById(id);
+        const cnt = document.getElementById(countId);
+        if(!el || !cnt) return;
+        
+        cnt.textContent = list.length;
+        const sorted = list.sort((a,b)=>b.revenue - a.revenue);
+        const top5 = sorted.slice(0, 5);
+        
+        el.innerHTML = top5.map(x => `
+          <div class="flex justify-between items-center text-[11px] text-slate-700 bg-white/60 p-1.5 rounded border border-slate-100 mb-1">
+            <span class="truncate font-semibold w-24" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span>
+            <div class="text-right">
+               <div class="font-bold">${fmtRp(x.revenue)}</div>
+               <div class="text-[9px] text-slate-500">${x.qty} qty</div>
+            </div>
+          </div>
+        `).join('') + (list.length > 5 ? `<div class="text-[10px] text-center text-slate-400 font-bold mt-1">+${list.length-5} lainnya</div>` : '');
+      };
+
+      fillList('list-stars', 'count-stars', groups.Stars);
+      fillList('list-plow', 'count-plow', groups.Plowhorses);
+      fillList('list-puzzle', 'count-puzzle', groups.Puzzles);
+      fillList('list-dog', 'count-dog', groups.Dogs);
+
+      // -- RENDER CHART --
       matrixChart = new Chart(ctx, {
         type: 'scatter',
         data: { datasets: [{ label: 'Matrix', data: dataset, backgroundColor: dataset.map(d=>d.color), pointRadius: 6 }] },
@@ -1175,7 +1245,7 @@
           <td class="font-bold text-slate-800">${escapeHtml(x.name)}</td>
           <td><span class="pill bg-slate-100 text-slate-600">${escapeHtml(x.category)}</span></td>
           <td class="font-bold">${x.qty}</td>
-          <td class="font-bold">${fmtRp(x.revenue)}</td>
+          <td class="font-bold text-xs text-slate-500">${formatTimeAgo(x.lastSold)}</td>
           <td><span class="pill bg-rose-100 text-rose-700">Evaluasi</span></td>
         </tr>`).join('');
     }
