@@ -3,11 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PayBoss | Simple Sales Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>PayBoss | Sales Insights (Super Manager Mode)</title>
+
+  <!-- Chart.js + Tailwind -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+
   <style>
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; background: linear-gradient(135deg,#667eea 0%, #7c3aed 45%, #0ea5e9 100%); min-height: 100vh; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial;
+      background: linear-gradient(135deg,#667eea 0%, #7c3aed 45%, #0ea5e9 100%);
+      min-height: 100vh;
+    }
     * { box-sizing: border-box; }
 
     .dashboard-container { max-width: 1280px; margin: 0 auto; padding: 20px; display: none; }
@@ -29,45 +36,51 @@
     .kpi .label { font-size: 12px; opacity: 0.85; font-weight: 700; }
     .kpi .value { font-size: 22px; font-weight: 900; letter-spacing: -0.3px; margin-top: 4px; }
     .kpi .sub { font-size: 12px; opacity: 0.9; margin-top: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    
+
     /* Growth Badge */
     .growth-badge { font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 6px; display: inline-flex; align-items: center; gap: 2px; }
-    .growth-up { background: #dcfce7; color: #15803d; } /* Green */
-    .growth-down { background: #fee2e2; color: #b91c1c; } /* Red */
-    .growth-neutral { background: #f1f5f9; color: #64748b; } /* Gray */
+    .growth-up { background: #dcfce7; color: #15803d; }
+    .growth-down { background: #fee2e2; color: #b91c1c; }
+    .growth-neutral { background: #f1f5f9; color: #64748b; }
 
-    /* Chart Box adjusted for bottom labels */
     .chart-box { height: 320px; position: relative; width: 100%; }
 
     .table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
     .table th { text-align: left; padding: 12px; background: #f8fafc; color: #64748b; font-weight: 900; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; }
     .table td { padding: 12px; border-bottom: 1px solid #f1f5f9; color: #0f172a; }
     .table tr:hover td { background: #f8fafc; }
+    .click-row { cursor: pointer; }
 
     .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 900; }
-
-    /* Matrix Badges */
-    .mx-badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-    .mx-stars { background: #dcfce7; color: #15803d; }
-    .mx-plow { background: #fef9c3; color: #854d0e; }
-    .mx-puzzle { background: #dbeafe; color: #1e40af; }
-    .mx-dogs { background: #fee2e2; color: #991b1b; }
 
     .toast { position: fixed; bottom: 24px; right: 24px; background: #ef4444; color: white; padding: 14px 18px; border-radius: 12px; display: none; z-index: 100; box-shadow: 0 10px 20px rgba(0,0,0,0.2); max-width: 420px; }
     .toast.show { display: block; animation: slideUp 0.2s ease; }
     @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-    /* Legend Dot */
-    .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+
+    /* Toggle chips */
+    .chip { padding: 6px 10px; border-radius: 999px; font-weight: 900; font-size: 12px; border: 1px solid #e2e8f0; background: #fff; color: #0f172a; }
+    .chip.active { background: #111827; color: #fff; border-color: #111827; }
+    .chip.soft { background: #f1f5f9; }
+
+    /* Drawer */
+    #drawerOverlay { position: fixed; inset: 0; background: rgba(2,6,23,0.55); display: none; z-index: 60; }
+    #drawer { position: fixed; top: 0; right: 0; height: 100vh; width: min(520px, 92vw); background: rgba(255,255,255,0.98);
+      border-left: 1px solid #e2e8f0; box-shadow: -20px 0 40px rgba(0,0,0,0.18); transform: translateX(100%);
+      transition: transform 0.25s ease; z-index: 70; display: flex; flex-direction: column;
+    }
+    #drawer.open { transform: translateX(0); }
   </style>
 </head>
+
 <body>
 
   <!-- AUTH SCREEN -->
   <div id="auth-overlay">
     <div class="login-box">
       <h2 class="text-2xl font-black text-slate-900 mb-1">Manager Access</h2>
-      <p class="text-slate-500 text-sm mb-6">PayBoss • Sales Insights Dashboard</p>
+      <p class="text-slate-500 text-sm mb-6">PayBoss • Super Manager Mode</p>
       <form onsubmit="handleLogin(event)">
         <input type="email" id="mgr-email" placeholder="Email" class="input-field" required>
         <input type="password" id="mgr-pass" placeholder="Password" class="input-field" required>
@@ -83,8 +96,8 @@
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 text-white">
       <div>
-        <h1 class="text-3xl font-black tracking-tight">📊 Sales Insights (Ringkas)</h1>
-        <p class="text-white/85 text-sm mt-1">Mode Hemat Data: Refresh manual untuk update.</p>
+        <h1 class="text-3xl font-black tracking-tight">📊 Sales Insights (Super Manager)</h1>
+        <p class="text-white/85 text-sm mt-1">Fitur Lengkap: Matrix, Alert, Compare, Bundling & Drill-down.</p>
       </div>
       <div class="flex gap-2">
         <button onclick="fetchData()" id="btn-refresh" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-xl font-extrabold text-sm shadow-lg transition flex items-center gap-2">
@@ -103,15 +116,20 @@
           <button class="filter-btn px-4 py-2 rounded-xl text-sm font-extrabold text-slate-600 hover:bg-slate-100" onclick="setFilter('week')" id="btn-week">7 Hari</button>
           <button class="filter-btn px-4 py-2 rounded-xl text-sm font-extrabold text-slate-600 hover:bg-slate-100" onclick="setFilter('month')" id="btn-month">30 Hari</button>
           <button class="filter-btn px-4 py-2 rounded-xl text-sm font-extrabold text-slate-600 hover:bg-slate-100" onclick="setFilter('custom')" id="btn-custom">Custom</button>
+
+          <div class="ml-1 flex items-center gap-2">
+            <span class="text-xs font-black text-slate-500">Chart:</span>
+            <button id="mode-qty" class="chip active" onclick="setChartMode('qty')">Qty</button>
+            <button id="mode-rev" class="chip" onclick="setChartMode('revenue')">Rev</button>
+          </div>
         </div>
 
         <div class="flex flex-col md:flex-row gap-2 md:items-center w-full md:w-auto">
-          
-          <!-- Category Filter SIMPLE -->
+          <!-- Category Filter SIMPLE (3 Kategori) -->
           <select id="filter-category" onchange="setCategory(this.value)" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 bg-white">
             <option value="All">📁 Semua Kategori</option>
-            <option value="Makanan">🍛 Makanan (Food/Snack/Pastry)</option>
-            <option value="Minuman">🥤 Minuman (Coffee/Non/Tea)</option>
+            <option value="Makanan">🍛 Makanan (All Food)</option>
+            <option value="Minuman">🥤 Minuman (All Drink)</option>
             <option value="Lain lain">📦 Lain lain</option>
           </select>
 
@@ -119,9 +137,10 @@
             <input type="date" id="date-start" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700" />
             <input type="date" id="date-end" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700" />
           </div>
-          <button onclick="applyCustomRange()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-extrabold hover:bg-slate-800">Terapkan</button>
+          <button onclick="applyCustomRange()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-extrabold hover:bg-slate-800">Go</button>
+
           <div class="flex-1"></div>
-          <input id="search-item" oninput="renderTables()" placeholder="Cari nama menu…" class="w-full md:w-48 px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold" />
+          <input id="search-item" placeholder="Cari menu…" class="w-full md:w-40 px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold" />
         </div>
       </div>
 
@@ -133,23 +152,21 @@
 
     <!-- KPI Row -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-      <!-- REVENUE with Growth -->
       <div class="kpi">
         <div class="label">Total Revenue</div>
         <div class="value" id="kpi-revenue">Rp 0</div>
         <div class="sub">
-           <span id="rev-growth" class="growth-badge growth-neutral">-</span>
-           <span id="kpi-revenue-sub" class="text-xs">0% QRIS</span>
+          <span id="rev-growth" class="growth-badge growth-neutral">-</span>
+          <span id="kpi-revenue-sub" class="text-xs">0% QRIS</span>
         </div>
       </div>
 
-      <!-- ORDERS with Growth -->
       <div class="kpi">
         <div class="label">Total Orders</div>
         <div class="value" id="kpi-orders">0</div>
         <div class="sub">
-            <span id="ord-growth" class="growth-badge growth-neutral">-</span>
-            <span class="text-xs">transaksi valid</span>
+          <span id="ord-growth" class="growth-badge growth-neutral">-</span>
+          <span class="text-xs">transaksi valid</span>
         </div>
       </div>
 
@@ -158,11 +175,13 @@
         <div class="value" id="kpi-items">0</div>
         <div class="sub" id="kpi-items-sub">Qty total (Filter)</div>
       </div>
+
       <div class="kpi">
         <div class="label">AOV</div>
         <div class="value" id="kpi-aov">Rp 0</div>
         <div class="sub" id="kpi-aov-sub">Avg value per order</div>
       </div>
+
       <div class="kpi">
         <div class="label">Avg Items/Order</div>
         <div class="value" id="kpi-ipo">0</div>
@@ -170,56 +189,62 @@
       </div>
     </div>
 
-    <!-- Menu Matrix (Scatter Plot) -->
+    <!-- Trend: daily + hourly -->
     <div class="card mb-6">
-      <h3>🧩 Menu Engineering Matrix (Profit vs Popularity)</h3>
-      <div class="flex flex-col md:flex-row gap-4 mb-4">
-        <div class="flex-1 h-[340px] relative">
-           <canvas id="matrixChart"></canvas>
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+        <div>
+          <h3>📈 Trend Harian + Jam Ramai</h3>
+          <div class="text-xs text-slate-500 -mt-2">Analisa waktu sibuk untuk staffing & promo jam sepi.</div>
         </div>
-        <div class="md:w-64 flex flex-col justify-center space-y-4 text-xs">
-           <div class="p-3 bg-green-50 rounded-lg border border-green-100">
-             <div class="font-bold text-green-700 flex items-center"><span class="legend-dot bg-green-500"></span> STARS</div>
-             <div class="text-green-600 mt-1">High Popularity, High Revenue.</div>
-           </div>
-           <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-             <div class="font-bold text-yellow-700 flex items-center"><span class="legend-dot bg-yellow-400"></span> PLOWHORSES</div>
-             <div class="text-yellow-600 mt-1">High Popularity, Low Revenue.</div>
-           </div>
-           <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
-             <div class="font-bold text-blue-700 flex items-center"><span class="legend-dot bg-blue-400"></span> PUZZLES</div>
-             <div class="text-blue-600 mt-1">Low Popularity, High Revenue.</div>
-           </div>
-           <div class="p-3 bg-red-50 rounded-lg border border-red-100">
-             <div class="font-bold text-red-700 flex items-center"><span class="legend-dot bg-red-500"></span> DOGS</div>
-             <div class="text-red-600 mt-1">Low Popularity, Low Revenue.</div>
-           </div>
+        <div class="flex gap-2 items-center">
+          <span class="text-xs font-black text-slate-500">View:</span>
+          <button id="trend-view-rev" class="chip active" onclick="setTrendView('revenue')">Revenue</button>
+          <button id="trend-view-ord" class="chip" onclick="setTrendView('orders')">Orders</button>
         </div>
       </div>
-      <!-- Matrix Insight & Action Box -->
-      <div id="matrix-insight" class="bg-slate-50 rounded-xl p-5 border border-slate-200">
-          <div class="text-center text-slate-400 text-sm">Menghitung matriks...</div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+        <div class="lg:col-span-2 p-3 rounded-2xl border bg-white">
+          <div class="font-extrabold text-slate-900 text-sm mb-2">Trend Harian</div>
+          <div style="height:280px;"><canvas id="dailyTrendChart"></canvas></div>
+        </div>
+        <div class="p-3 rounded-2xl border bg-white">
+          <div class="font-extrabold text-slate-900 text-sm mb-2">Jam Ramai (Heatmap)</div>
+          <div style="height:280px;"><canvas id="hourlyTrendChart"></canvas></div>
+          <div id="staffingHint" class="text-xs text-slate-600 mt-2">—</div>
+        </div>
       </div>
     </div>
 
-    <!-- NEW: MATRIX DETAIL TABLE -->
+    <!-- Menu Matrix -->
     <div class="card mb-6">
-      <h3>📋 Detail Matrix Menu (Urut Status)</h3>
-      <div class="overflow-x-auto" style="max-height: 400px; overflow-y:auto; border-radius: 14px;">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Menu</th>
-              <th>Kategori</th>
-              <th style="width:100px;">Qty</th>
-              <th style="width:140px;">Revenue</th>
-              <th style="width:120px;">Status</th>
-            </tr>
-          </thead>
-          <tbody id="matrixTableBody">
-            <tr><td colspan="5" class="text-center py-8 text-slate-400">Menunggu data matriks...</td></tr>
-          </tbody>
-        </table>
+      <h3>🧩 Menu Engineering Matrix (Profit vs Popularity)</h3>
+      <div class="flex flex-col md:flex-row gap-4 h-full">
+        <div class="flex-1 h-[340px] relative">
+          <canvas id="matrixChart"></canvas>
+        </div>
+        <div class="md:w-64 flex flex-col justify-center space-y-4 text-xs">
+          <div class="p-3 bg-green-50 rounded-lg border border-green-100">
+            <div class="font-bold text-green-700 flex items-center"><span class="legend-dot" style="background:#22c55e"></span> STARS</div>
+            <div class="text-green-600 mt-1">High Popularity, High Revenue. Pertahankan.</div>
+          </div>
+          <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+            <div class="font-bold text-yellow-700 flex items-center"><span class="legend-dot" style="background:#eab308"></span> PLOWHORSES</div>
+            <div class="text-yellow-600 mt-1">High Popularity, Low Revenue. Naikkan harga/efisiensi.</div>
+          </div>
+          <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
+            <div class="font-bold text-blue-700 flex items-center"><span class="legend-dot" style="background:#60a5fa"></span> PUZZLES</div>
+            <div class="text-blue-600 mt-1">Low Popularity, High Revenue. Butuh promosi.</div>
+          </div>
+          <div class="p-3 bg-red-50 rounded-lg border border-red-100">
+            <div class="font-bold text-red-700 flex items-center"><span class="legend-dot" style="background:#ef4444"></span> DOGS</div>
+            <div class="text-red-600 mt-1">Low Popularity, Low Revenue. Hapus/Bundling.</div>
+          </div>
+          <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+            <div class="font-extrabold text-slate-900">Tips</div>
+            <div class="text-slate-600 mt-1">Klik menu di tabel untuk <span class="font-black">detail lengkap</span>.</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -228,9 +253,17 @@
 
       <!-- Top Sellers -->
       <div class="card lg:col-span-2">
-        <h3>🔥 Top Sellers (Qty & Revenue)</h3>
-        <div id="top-summary" class="mb-3 text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-2 rounded-lg">Loading Summary...</div>
-        <div class="chart-box"><canvas id="topChart"></canvas></div>
+        <div class="flex items-start justify-between gap-3">
+          <h3 class="mb-0">🔥 Top Sellers (Click Row for Detail)</h3>
+          <div class="flex gap-2 items-center">
+            <span class="text-xs font-black text-slate-500">Chart:</span>
+            <button id="top-toggle-qty" class="chip active" onclick="setChartMode('qty')">Qty</button>
+            <button id="top-toggle-rev" class="chip" onclick="setChartMode('revenue')">Rev</button>
+          </div>
+        </div>
+
+        <div class="chart-box mt-3"><canvas id="topChart"></canvas></div>
+
         <div class="mt-4 overflow-x-auto" style="max-height: 360px; overflow-y:auto; border-radius: 14px;">
           <table class="table">
             <thead>
@@ -240,7 +273,7 @@
                 <th style="width:140px;">Kategori</th>
                 <th style="width:90px;">Qty</th>
                 <th style="width:140px;">Revenue</th>
-                <th style="width:100px;">Kontribusi</th>
+                <th style="width:130px;">Attach Rate</th>
               </tr>
             </thead>
             <tbody id="topTbody">
@@ -252,7 +285,7 @@
 
       <!-- Insight Panel -->
       <div class="card">
-        <h3>🧠 Insight Cepat (Untuk Manager)</h3>
+        <h3>🧠 Insight Strategis (Action Plan)</h3>
         <div class="space-y-3 text-sm text-slate-700" id="insightBox">
           <div class="text-slate-400">Menunggu data…</div>
         </div>
@@ -260,9 +293,17 @@
 
       <!-- Bottom Sellers -->
       <div class="card lg:col-span-2">
-        <h3>🐢 Bottom Sellers (Paling Tidak Laku)</h3>
-        <div id="bottom-summary" class="mb-3 text-xs font-bold text-red-700 bg-red-50 px-3 py-2 rounded-lg">Loading Summary...</div>
-        <div class="chart-box"><canvas id="bottomChart"></canvas></div>
+        <div class="flex items-start justify-between gap-3">
+          <h3 class="mb-0">🐢 Bottom Sellers (Evaluasi)</h3>
+          <div class="flex gap-2 items-center">
+            <span class="text-xs font-black text-slate-500">Chart:</span>
+            <button id="bottom-toggle-qty" class="chip active" onclick="setChartMode('qty')">Qty</button>
+            <button id="bottom-toggle-rev" class="chip" onclick="setChartMode('revenue')">Rev</button>
+          </div>
+        </div>
+
+        <div class="chart-box mt-3"><canvas id="bottomChart"></canvas></div>
+
         <div class="mt-4 overflow-x-auto" style="max-height: 360px; overflow-y:auto; border-radius: 14px;">
           <table class="table">
             <thead>
@@ -271,7 +312,7 @@
                 <th>Menu</th>
                 <th style="width:140px;">Kategori</th>
                 <th style="width:90px;">Qty</th>
-                <th style="width:140px;">Terakhir Laku</th>
+                <th style="width:140px;">Revenue</th>
                 <th style="width:130px;">Saran</th>
               </tr>
             </thead>
@@ -313,6 +354,106 @@
 
     </div>
 
+    <!-- SUPER MANAGER MODE -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <!-- Alert Center -->
+      <div class="card">
+        <h3>🚨 Alert Center</h3>
+        <div class="text-xs text-slate-500 -mt-2 mb-3">Deteksi anomali (drop) & peluang.</div>
+        <div id="alertList" class="space-y-2 text-sm">
+          <div class="text-slate-400">Menunggu data…</div>
+        </div>
+      </div>
+
+      <!-- Compare -->
+      <div class="card lg:col-span-2">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h3 class="mb-0">🆚 Compare Menu</h3>
+            <div class="text-xs text-slate-500">Bandingkan performa 2 menu (head-to-head).</div>
+          </div>
+          <div class="flex gap-2">
+            <select id="cmpA" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 bg-white"></select>
+            <select id="cmpB" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 bg-white"></select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3" id="cmpKpi">
+          <div class="p-3 rounded-xl border bg-slate-50">
+            <div class="text-[11px] font-bold text-slate-500">A Revenue</div>
+            <div id="cmpAR" class="text-base font-black text-slate-900">Rp 0</div>
+          </div>
+          <div class="p-3 rounded-xl border bg-slate-50">
+            <div class="text-[11px] font-bold text-slate-500">B Revenue</div>
+            <div id="cmpBR" class="text-base font-black text-slate-900">Rp 0</div>
+          </div>
+          <div class="p-3 rounded-xl border bg-white">
+            <div class="text-[11px] font-bold text-slate-500">A Attach</div>
+            <div id="cmpAA" class="text-base font-black text-slate-900">0%</div>
+          </div>
+          <div class="p-3 rounded-xl border bg-white">
+            <div class="text-[11px] font-bold text-slate-500">B Attach</div>
+            <div id="cmpBA" class="text-base font-black text-slate-900">0%</div>
+          </div>
+        </div>
+
+        <div class="mt-3 p-3 rounded-2xl border bg-white">
+          <div class="font-extrabold text-slate-900 text-sm mb-2">Overlay Trend Harian</div>
+          <div style="height:240px;"><canvas id="compareChart"></canvas></div>
+          <div id="cmpNote" class="text-xs text-slate-500 mt-2">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bundling Lab -->
+    <div class="card mb-6">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 class="mb-0">🧪 Bundling Lab</h3>
+          <div class="text-xs text-slate-500">Kombinasi menu terpopuler & simulator diskon.</div>
+        </div>
+        <div class="flex gap-2 items-center">
+          <select id="bundlePair" class="px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 bg-white"></select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
+        <div class="lg:col-span-2 overflow-x-auto border rounded-2xl">
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width:54px;">#</th>
+                <th>Pair</th>
+                <th style="width:110px;">Support</th>
+                <th style="width:110px;">Lift</th>
+                <th style="width:140px;">Count</th>
+                <th style="width:120px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="comboTbody">
+              <tr><td colspan="6" class="text-center py-8 text-slate-400">Menunggu data…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="p-4 rounded-2xl border bg-slate-50">
+          <div class="font-extrabold text-slate-900 mb-3">Quick Simulator</div>
+
+          <div class="text-xs font-bold text-slate-500 mb-1">Discount item ke-2</div>
+          <input id="simDiscount" type="range" min="0" max="40" value="10" class="w-full">
+          <div class="text-sm font-extrabold text-slate-900 mt-1"><span id="simDiscountVal">10</span>%</div>
+
+          <div class="text-xs font-bold text-slate-500 mb-1 mt-3">Target attach boost (pp)</div>
+          <input id="simBoost" type="range" min="0" max="25" value="5" class="w-full">
+          <div class="text-sm font-extrabold text-slate-900 mt-1">+<span id="simBoostVal">5</span> poin</div>
+
+          <div class="border-t mt-4 pt-3 space-y-1 text-sm" id="simOutput">
+            <div class="text-slate-400">Pilih pair untuk simulasi…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Raw Transactions -->
     <div class="card">
       <h3>🧾 Transaksi (Ringkas)</h3>
@@ -337,11 +478,69 @@
 
   </div>
 
+  <!-- Drawer -->
+  <div id="drawerOverlay" onclick="closeDrawer()"></div>
+  <div id="drawer">
+    <div class="p-4 border-b flex items-start justify-between gap-3">
+      <div>
+        <div class="text-xs font-black text-slate-500">DRILL-DOWN MENU</div>
+        <div id="drawerTitle" class="text-lg font-black text-slate-900">—</div>
+        <div id="drawerSub" class="text-xs text-slate-600 mt-1">—</div>
+      </div>
+      <button onclick="closeDrawer()" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-extrabold hover:bg-slate-800">Tutup</button>
+    </div>
+
+    <div class="p-4 overflow-y-auto flex-1">
+      <div class="grid grid-cols-2 gap-2">
+        <div class="p-3 rounded-xl border bg-slate-50">
+          <div class="text-[11px] font-bold text-slate-500">Qty</div>
+          <div id="dQty" class="text-base font-black text-slate-900">0</div>
+        </div>
+        <div class="p-3 rounded-xl border bg-slate-50">
+          <div class="text-[11px] font-bold text-slate-500">Revenue</div>
+          <div id="dRev" class="text-base font-black text-slate-900">Rp 0</div>
+        </div>
+        <div class="p-3 rounded-xl border bg-white">
+          <div class="text-[11px] font-bold text-slate-500">Attach Rate</div>
+          <div id="dAttach" class="text-base font-black text-slate-900">0%</div>
+        </div>
+        <div class="p-3 rounded-xl border bg-white">
+          <div class="text-[11px] font-bold text-slate-500">Avg Price</div>
+          <div id="dAvgPrice" class="text-base font-black text-slate-900">Rp 0</div>
+        </div>
+      </div>
+
+      <div class="mt-4 p-3 rounded-2xl border bg-white">
+        <div class="flex items-center justify-between">
+          <div class="font-extrabold text-slate-900 text-sm">Trend Harian</div>
+          <div class="flex gap-2">
+            <button id="dViewRev" class="chip active" onclick="setDrawerView('revenue')">Rev</button>
+            <button id="dViewQty" class="chip" onclick="setDrawerView('qty')">Qty</button>
+            <button id="dViewAttach" class="chip" onclick="setDrawerView('attach')">Att</button>
+          </div>
+        </div>
+        <div style="height:220px" class="mt-2"><canvas id="drawerDaily"></canvas></div>
+      </div>
+
+      <div class="mt-3 p-3 rounded-2xl border bg-white">
+        <div class="font-extrabold text-slate-900 text-sm mb-2">Jam Ramai (Menu ini)</div>
+        <div style="height:220px"><canvas id="drawerHourly"></canvas></div>
+      </div>
+
+      <div class="mt-3 p-3 rounded-2xl border bg-slate-50">
+        <div class="font-extrabold text-slate-900 text-sm mb-2">Top Pairing (Kandidat Bundling)</div>
+        <div id="drawerPairs" class="space-y-2 text-sm text-slate-700">
+          <div class="text-slate-400">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast">Error</div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, query, limit } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
     // ===== Firebase Config =====
@@ -362,14 +561,19 @@
     // ===== State =====
     let allOrders = [];
     let filteredOrders = [];
-
-    let currentFilter = 'week'; // UBAH DEFAULT KE 'week' (7 Hari) AGAR DATA LANGSUNG MUNCUL
-    let currentCategory = 'All'; 
+    let currentFilter = 'week';
+    let currentCategory = 'All';
     let customRange = { start: null, end: null };
+    let currentRange = { startBiz: null, endBiz: null }; // Track aktif range
+    let chartMode = 'qty'; // qty | revenue
+    let trendView = 'revenue'; // revenue | orders
+    let drawerView = 'revenue'; // revenue | qty | attach
+    let searchTimer = null;
 
-    let topChart = null;
-    let bottomChart = null;
-    let matrixChart = null;
+    // ===== Charts Instances =====
+    let topChart = null, bottomChart = null, matrixChart = null;
+    let dailyTrendChart = null, hourlyTrendChart = null, compareChart = null;
+    let drawerDailyChart = null, drawerHourlyChart = null;
 
     // ===== Helpers =====
     const DAY = 86400000;
@@ -383,6 +587,8 @@
 
     function fmtRp(n) { return 'Rp ' + (Math.round(n || 0)).toLocaleString('id-ID'); }
     function pct(x) { return (isFinite(x) ? (x * 100).toFixed(1) : '0.0') + '%'; }
+    function escapeHtml(str) { return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function fmtDay(ms) { return new Date(ms).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }); }
 
     function getBizDate(ts) {
       const d = new Date(ts);
@@ -403,33 +609,17 @@
       return 'Malam';
     }
 
-    // ===== HEURISTIK KATEGORI SIMPLE (3 KATEGORI UTAMA) =====
+    // ===== HEURISTIK KATEGORI SIMPLE (3 Kategori) =====
     const CATEGORY_RULES = [
-      // 1. MINUMAN (Gabungan: Coffee, Kopi Susu, Non Coffee, Mocktail, Tea)
-      { 
-        key: 'Minuman', 
-        test: /(americano|latte|coffee|kopi|cappucino|magic|split|vietnam|banana|brown sugar|butterscotch|caramel|almond|hazelnut|espresso|vanilla|chocolate|cookies|matcha|red velvet|taro|mocktail|dark moon|flora|honey|kiwi|lembayung|midnight|ocean|peach|summer|tropical|lemon tea|tea)/i 
-      },
-      
-      // 2. MAKANAN (Gabungan: Food, Snacks, Pastry, Dessert)
-      { 
-        key: 'Makanan', 
-        test: /(kwetiau|mie|nasi|steak|spaghetti|bebek|bapao|burger|bola|chicken|cireng|empek|jamur|kentang|kulit|mix|pisang|roti|singkong|sotong|tahu|tempe|tofu|corn|gyoza|sosis|cheesecake|tiramisu|brownies|misu|mousse|donat|tom & jerry|sago|smoothie)/i 
-      },
-
-      // 3. LAIN LAIN (Item spesifik non-menu utama)
-      { 
-        key: 'Lain lain', 
-        test: /(telur|sauce|cleo|rokok|tissue|mineral|nasi putih$)/i 
-      }
+      { key: 'Minuman', test: /(americano|latte|coffee|kopi|cappucino|magic|split|vietnam|banana|brown sugar|butterscotch|caramel|almond|hazelnut|espresso|vanilla|chocolate|cookies|matcha|red velvet|taro|mocktail|dark moon|flora|honey|kiwi|lembayung|midnight|ocean|peach|summer|tropical|lemon tea|tea)/i },
+      { key: 'Makanan', test: /(kwetiau|mie|nasi|steak|spaghetti|bebek|bapao|burger|bola|chicken|cireng|empek|jamur|kentang|kulit|mix|pisang|roti|singkong|sotong|tahu|tempe|tofu|corn|gyoza|sosis|cheesecake|tiramisu|brownies|misu|mousse|donat|tom & jerry|sago|smoothie)/i },
+      { key: 'Lain lain', test: /(telur|sauce|cleo|rokok|tissue|mineral|nasi putih$)/i }
     ];
 
     function inferCategory(item) {
       const name = String(item?.name || '');
-      
       const lainRule = CATEGORY_RULES.find(r => r.key === 'Lain lain');
       if (lainRule.test.test(name)) return 'Lain lain';
-
       for (const r of CATEGORY_RULES) {
          if (r.key !== 'Lain lain' && r.test.test(name)) return r.key;
       }
@@ -446,8 +636,41 @@
       })).filter(i => i.name && i.qty > 0);
     }
 
+    // Check Filter Kategori
+    function isItemMatchCategory(cat) {
+      if (currentCategory === 'All') return true;
+      return String(cat || '') === currentCategory;
+    }
+
+    // Helper: Ekstrak Info Order yg Relevan
+    function getRelevantOrderInfo(order) {
+      const total = Number(order?.total || 0) || 0;
+      const ts = Number(order?.timestamp || 0) || 0;
+      if (!ts) return null;
+
+      const allItems = safeItems(order);
+      if (!allItems.length) return null;
+
+      // Filter items sesuai kategori aktif
+      const relevantItems = allItems.filter(i => isItemMatchCategory(inferCategory(i)));
+      if (!relevantItems.length) return null;
+
+      const allQty = allItems.reduce((a,i)=>a + (i.qty||0), 0);
+      const relevantQty = relevantItems.reduce((a,i)=>a + (i.qty||0), 0);
+
+      // Hitung Revenue prorata
+      let relevantRevenue = 0;
+      const sumPrice = relevantItems.reduce((acc, i) => acc + (i.price * i.qty), 0);
+      if (sumPrice > 0) {
+        relevantRevenue = sumPrice;
+      } else {
+        if (allQty > 0) relevantRevenue = total * (relevantQty / allQty);
+      }
+
+      return { ts, total, allItems, relevantItems, allQty, relevantQty, relevantRevenue };
+    }
+
     function computeMetrics(orders) {
-      const totalOrders = orders.length; 
       let filteredOrderCount = 0;
       let totalRevenue = 0;
       let totalQty = 0;
@@ -456,59 +679,35 @@
       const itemAgg = new Map();
 
       orders.forEach(o => {
-        const total = Number(o?.total || 0) || 0;
-        const ts = Number(o?.timestamp || 0) || 0;
-        if (!ts) return;
-
-        const allItems = safeItems(o);
-        const relevantItems = allItems.filter(i => {
-            const cat = inferCategory(i);
-            if (currentCategory === 'All') return true;
-            return cat === currentCategory;
-        });
-
-        if (relevantItems.length === 0) return;
+        const info = getRelevantOrderInfo(o);
+        if (!info) return;
 
         filteredOrderCount++;
-        let relevantRevenue = 0;
-        const sumPrice = relevantItems.reduce((acc, i) => acc + (i.price * i.qty), 0);
-        
-        if (sumPrice > 0) {
-            relevantRevenue = sumPrice;
-        } else {
-            const allItemsQty = allItems.reduce((acc, i) => acc + i.qty, 0);
-            const relevantQty = relevantItems.reduce((acc, i) => acc + i.qty, 0);
-            if (allItemsQty > 0) relevantRevenue = total * (relevantQty / allItemsQty);
-        }
+        totalRevenue += info.relevantRevenue;
 
-        totalRevenue += relevantRevenue;
-        
         const p = normalizePayment(o?.paymentMethod);
-        if (p === 'qris') payQ += relevantRevenue; else payC += relevantRevenue;
-        shift[getShiftLabel(ts)] += relevantRevenue;
+        if (p === 'qris') payQ += info.relevantRevenue; else payC += info.relevantRevenue;
+        shift[getShiftLabel(info.ts)] += info.relevantRevenue;
 
-        const uniqueInOrder = new Map(); 
-        relevantItems.forEach(it => {
+        // Agregasi item
+        const unique = new Set();
+        info.relevantItems.forEach(it => {
           let itemRev = 0;
           if (it.price > 0) itemRev = it.qty * it.price;
-          else {
-               const allItemsQty = allItems.reduce((acc, i) => acc + i.qty, 0);
-               if (allItemsQty > 0) itemRev = total * (it.qty / allItemsQty);
-          }
+          else if (info.total > 0 && info.allQty > 0) itemRev = info.total * (it.qty / info.allQty);
 
           totalQty += it.qty;
           const cat = inferCategory(it);
-          if (!itemAgg.has(it.name)) itemAgg.set(it.name, { name: it.name, qty: 0, revenue: 0, txCount: 0, category: cat, lastSold: 0 });
+          if (!itemAgg.has(it.name)) itemAgg.set(it.name, { name: it.name, qty: 0, revenue: 0, txCount: 0, category: cat });
           const row = itemAgg.get(it.name);
           row.qty += it.qty;
           row.revenue += itemRev;
-          if (ts > row.lastSold) row.lastSold = ts;
-          if (row.category === 'Lain lain' && cat !== 'Lain lain') row.category = cat;
-          if (!uniqueInOrder.has(it.name)) uniqueInOrder.set(it.name, true);
+          unique.add(it.name);
         });
 
-        uniqueInOrder.forEach((_, name) => {
-            if (itemAgg.has(name)) itemAgg.get(name).txCount += 1;
+        unique.forEach(name => {
+          const row = itemAgg.get(name);
+          if(row) row.txCount += 1;
         });
       });
 
@@ -527,27 +726,113 @@
       };
     }
 
+    // ===== Time Series & Index Building =====
+    function buildTimeSeries(orders, startBiz, endBiz) {
+      const dayList = [];
+      for (let t = startBiz; t <= endBiz; t += DAY) dayList.push(t);
+
+      const byDayRev = new Map();
+      const byDayOrd = new Map();
+      const byHourRev = new Array(24).fill(0);
+      const byHourOrd = new Array(24).fill(0);
+
+      orders.forEach(o => {
+        const info = getRelevantOrderInfo(o);
+        if (!info) return;
+        const day = getBizDate(info.ts);
+        const h = new Date(info.ts).getHours();
+
+        byDayRev.set(day, (byDayRev.get(day)||0) + info.relevantRevenue);
+        byDayOrd.set(day, (byDayOrd.get(day)||0) + 1);
+        byHourRev[h] += info.relevantRevenue;
+        byHourOrd[h] += 1;
+      });
+
+      return {
+        labels: dayList.map(fmtDay),
+        dayRevenue: dayList.map(d => Math.round(byDayRev.get(d)||0)),
+        dayOrders: dayList.map(d => (byDayOrd.get(d)||0)),
+        hourLabels: Array.from({length:24}, (_,h)=> String(h).padStart(2,'0')+":00"),
+        hourRevenue: byHourRev.map(x=>Math.round(x)),
+        hourOrders: byHourOrd,
+        startBiz, endBiz
+      };
+    }
+
+    function buildManagerIndex(orders, startBiz, endBiz) {
+      const totalOrdersByDay = new Map();
+      const itemByDay = new Map(); 
+      const itemByHour = new Map(); 
+      const pairs = new Map();
+      const dayList = [];
+      for (let t = startBiz; t <= endBiz; t += DAY) dayList.push(t);
+
+      function ensureItemDay(item, day) {
+        if (!itemByDay.has(item)) itemByDay.set(item, new Map());
+        const m = itemByDay.get(item);
+        if (!m.has(day)) m.set(day, { qty: 0, rev: 0, itemOrders: 0 });
+        return m.get(day);
+      }
+      function ensureItemHour(item) {
+        if (!itemByHour.has(item)) itemByHour.set(item, new Array(24).fill(0));
+        return itemByHour.get(item);
+      }
+
+      orders.forEach(o => {
+        const info = getRelevantOrderInfo(o);
+        if (!info) return;
+
+        const day = getBizDate(info.ts);
+        const hour = new Date(info.ts).getHours();
+        totalOrdersByDay.set(day, (totalOrdersByDay.get(day)||0) + 1);
+
+        const itemRevMap = new Map();
+        const unique = new Set();
+
+        info.relevantItems.forEach(it => {
+          const name = it.name;
+          unique.add(name);
+          let itemRev = 0;
+          if (it.price > 0) itemRev = it.qty * it.price;
+          else if (info.total > 0 && info.allQty > 0) itemRev = info.total * (it.qty / info.allQty);
+          
+          itemRevMap.set(name, (itemRevMap.get(name)||0) + itemRev);
+          
+          const row = ensureItemDay(name, day);
+          row.qty += it.qty;
+          row.rev += itemRev;
+          ensureItemHour(name)[hour] += itemRev;
+        });
+
+        unique.forEach(name => { ensureItemDay(name, day).itemOrders += 1; });
+
+        // Bundling Logic (Pairing)
+        const arr = Array.from(unique);
+        for (let i=0; i<arr.length; i++) {
+          for (let j=i+1; j<arr.length; j++) {
+            const a = arr[i], b = arr[j];
+            const x = a < b ? a : b;
+            const y = a < b ? b : a;
+            const key = `${x}|||${y}`;
+            if (!pairs.has(key)) pairs.set(key, { a: x, b: y, count: 0, revA: 0, revB: 0 });
+            const p = pairs.get(key);
+            p.count += 1;
+            p.revA += (itemRevMap.get(x)||0);
+            p.revB += (itemRevMap.get(y)||0);
+          }
+        }
+      });
+
+      return { totalOrdersByDay, itemByDay, itemByHour, pairs, dayList };
+    }
+
     // ===== Growth Logic =====
     function getPreviousRange(currentP, startC, endC) {
-      if (currentP === 'today') {
-        const prevStart = startC - (7 * DAY);
-        const prevEnd = endC - (7 * DAY);
-        return { start: prevStart, end: prevEnd, label: 'vs Minggu Lalu' };
-      }
-      if (currentP === 'week') {
-        const prevStart = startC - (7 * DAY);
-        const prevEnd = startC - DAY; 
-        return { start: prevStart, end: prevEnd, label: 'vs 7 Hari Lalu' };
-      }
-      if (currentP === 'month') {
-        const prevStart = startC - (30 * DAY);
-        const prevEnd = startC - DAY;
-        return { start: prevStart, end: prevEnd, label: 'vs 30 Hari Lalu' };
-      }
-      const duration = endC - startC;
-      const prevEnd = startC - DAY;
-      const prevStart = prevEnd - duration;
-      return { start: prevStart, end: prevEnd, label: 'vs Periode Lalu' };
+      if (currentP === 'today') return { start: startC-(7*DAY), end: endC-(7*DAY), label: 'vs Minggu Lalu' };
+      if (currentP === 'week') return { start: startC-(7*DAY), end: startC-DAY, label: 'vs 7 Hari Lalu' };
+      if (currentP === 'month') return { start: startC-(30*DAY), end: startC-DAY, label: 'vs 30 Hari Lalu' };
+      const dur = endC - startC;
+      return { start: startC-DAY-dur, end: startC-DAY, label: 'vs Periode Lalu' };
     }
 
     function renderGrowth(currM, startC, endC) {
@@ -559,71 +844,437 @@
       });
       const prevM = computeMetrics(prevOrders);
 
-      // Revenue Growth
-      const revEl = document.getElementById('rev-growth');
-      if (prevM.totalRevenue === 0) {
-         revEl.innerHTML = currM.totalRevenue > 0 ? `▲ 100% ${label}` : `- ${label}`;
-         revEl.className = `growth-badge ${currM.totalRevenue > 0 ? 'growth-up' : 'growth-neutral'}`;
-      } else {
-         const diff = currM.totalRevenue - prevM.totalRevenue;
-         const pct = (diff / prevM.totalRevenue) * 100;
-         const isUp = diff >= 0;
-         revEl.innerHTML = `${isUp ? '▲' : '▼'} ${Math.abs(pct).toFixed(0)}% ${label}`;
-         revEl.className = `growth-badge ${isUp ? 'growth-up' : 'growth-down'}`;
-      }
-
-      // Order Growth
-      const ordEl = document.getElementById('ord-growth');
-      if (prevM.totalOrders === 0) {
-         ordEl.innerHTML = currM.totalOrders > 0 ? `▲ 100% ${label}` : `- ${label}`;
-         ordEl.className = `growth-badge ${currM.totalOrders > 0 ? 'growth-up' : 'growth-neutral'}`;
-      } else {
-         const diff = currM.totalOrders - prevM.totalOrders;
-         const pct = (diff / prevM.totalOrders) * 100;
-         const isUp = diff >= 0;
-         ordEl.innerHTML = `${isUp ? '▲' : '▼'} ${Math.abs(pct).toFixed(0)}% ${label}`;
-         ordEl.className = `growth-badge ${isUp ? 'growth-up' : 'growth-down'}`;
-      }
+      const renderBadge = (el, curr, prev) => {
+        if(prev===0) {
+          el.innerHTML = curr > 0 ? `▲ 100% ${label}` : `- ${label}`;
+          el.className = `growth-badge ${curr>0?'growth-up':'growth-neutral'}`;
+        } else {
+          const diff = curr - prev;
+          const p = (diff / prev) * 100;
+          const isUp = diff >= 0;
+          el.innerHTML = `${isUp?'▲':'▼'} ${Math.abs(p).toFixed(0)}% ${label}`;
+          el.className = `growth-badge ${isUp?'growth-up':'growth-down'}`;
+        }
+      };
+      renderBadge(document.getElementById('rev-growth'), currM.totalRevenue, prevM.totalRevenue);
+      renderBadge(document.getElementById('ord-growth'), currM.totalOrders, prevM.totalOrders);
     }
 
-    function filterOrders(period) {
-      const now = new Date();
-      const today = getBizDate(now.getTime());
+    // ===== Chart & UI Logic =====
+    function setTrendViewUI(v) {
+      document.getElementById('trend-view-rev').classList.toggle('active', v==='revenue');
+      document.getElementById('trend-view-ord').classList.toggle('active', v==='orders');
+    }
 
-      let startBiz = null;
-      let endBiz = null;
+    function renderTrendCharts(series) {
+      const dCtx = document.getElementById('dailyTrendChart');
+      const hCtx = document.getElementById('hourlyTrendChart');
+      if (!dCtx || !hCtx) return;
 
-      if (period === 'today') {
-        startBiz = today;
-        endBiz = today;
-      } else if (period === 'week') {
-        startBiz = today - 6 * DAY;
-        endBiz = today;
-      } else if (period === 'month') {
-        startBiz = today - 29 * DAY;
-        endBiz = today;
-      } else if (period === 'custom') {
-        startBiz = customRange.start ?? today;
-        endBiz = customRange.end ?? today;
-      }
-
-      filteredOrders = allOrders.filter(o => {
-        if (!o?.timestamp) return false;
-        const biz = getBizDate(o.timestamp);
-        return biz >= startBiz && biz <= endBiz;
+      if (dailyTrendChart) dailyTrendChart.destroy();
+      const dailyData = trendView==='revenue' ? series.dayRevenue : series.dayOrders;
+      dailyTrendChart = new Chart(dCtx, {
+        type: 'line',
+        data: {
+          labels: series.labels,
+          datasets: [{ label: trendView, data: dailyData, borderColor: '#111827', tension: 0.25 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
       });
 
-      const label = document.getElementById('range-label');
-      const fmtDate = (ms) => new Date(ms).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
-      if (period === 'today') label.textContent = 'Range: Hari ini';
-      else label.textContent = `Range: ${fmtDate(startBiz)} — ${fmtDate(endBiz)}`;
+      if (hourlyTrendChart) hourlyTrendChart.destroy();
+      const hourData = trendView==='revenue' ? series.hourRevenue : series.hourOrders;
+      hourlyTrendChart = new Chart(hCtx, {
+        type: 'bar',
+        data: {
+          labels: series.hourLabels,
+          datasets: [{ label: 'Hour', data: hourData, backgroundColor: '#4f46e5', borderRadius: 8 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
+      });
 
-      renderAll();
-      const m = computeMetrics(filteredOrders);
-      renderGrowth(m, startBiz, endBiz);
+      // Staffing Hint
+      const arr = hourData.map((v,i)=>({i,v})).sort((a,b)=>b.v-a.v);
+      const peak = arr[0] || {i:0,v:0};
+      const peak2 = arr[1] || peak;
+      const label = (i) => String(i).padStart(2,'0') + ":00";
+      document.getElementById('staffingHint').innerHTML = `
+        <span class="font-extrabold text-slate-900">Peak:</span> ${label(peak.i)} 
+        • <span class="font-extrabold text-slate-900">Next:</span> ${label(peak2.i)}
+        <div class="mt-1">Saran: Optimalkan staf di jam peak ini.</div>
+      `;
     }
 
-    // ===== Rendering KPIs =====
+    // Chart Mode Toggle
+    window.setChartMode = (mode) => {
+      chartMode = mode;
+      document.getElementById('mode-qty').classList.toggle('active', chartMode==='qty');
+      document.getElementById('mode-rev').classList.toggle('active', chartMode==='revenue');
+      document.getElementById('top-toggle-qty').classList.toggle('active', chartMode==='qty');
+      document.getElementById('top-toggle-rev').classList.toggle('active', chartMode==='revenue');
+      document.getElementById('bottom-toggle-qty').classList.toggle('active', chartMode==='qty');
+      document.getElementById('bottom-toggle-rev').classList.toggle('active', chartMode==='revenue');
+      
+      const snap = window.__last_metrics;
+      if (snap?.m) {
+        const items = snap.m.items.filter(x => x.qty > 0);
+        const top = [...items].sort((a,b)=>b.qty - a.qty || b.revenue - a.revenue).slice(0, 10);
+        const bottom = [...items].sort((a,b)=>a.qty - b.qty || a.revenue - b.revenue).slice(0, 10);
+        renderTopBottomCharts(top, bottom);
+      }
+    };
+
+    window.setTrendView = (v) => {
+      trendView = v;
+      setTrendViewUI(v);
+      if (window.__last_metrics?.series) renderTrendCharts(window.__last_metrics.series);
+    };
+
+    // Matrix Plugin
+    Chart.register({
+      id: 'quadrantLines',
+      afterDraw(chart) {
+        const { scales: { x, y }, ctx } = chart;
+        const avgX = chart.$avgX, avgY = chart.$avgY;
+        if (!x || !y || !Number.isFinite(avgX)) return;
+        const xPix = x.getPixelForValue(avgX), yPix = y.getPixelForValue(avgY);
+        ctx.save();
+        ctx.lineWidth = 1; ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(15,23,42,0.35)';
+        ctx.beginPath(); ctx.moveTo(xPix, y.top); ctx.lineTo(xPix, y.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x.left, yPix); ctx.lineTo(x.right, yPix); ctx.stroke();
+        ctx.restore();
+      }
+    });
+
+    function renderMatrix(items) {
+      const ctx = document.getElementById('matrixChart');
+      if (!ctx) return;
+      if (matrixChart) matrixChart.destroy();
+
+      const active = items.filter(x => x.qty > 0);
+      if (!active.length) return;
+
+      const avgQty = active.reduce((a,b)=>a+b.qty,0)/active.length;
+      const avgRev = active.reduce((a,b)=>a+b.revenue,0)/active.length;
+
+      const dataset = active.map(item => {
+        let color = '#94a3b8';
+        if (item.qty >= avgQty && item.revenue >= avgRev) color = '#22c55e';
+        else if (item.qty >= avgQty) color = '#eab308';
+        else if (item.revenue >= avgRev) color = '#60a5fa';
+        else color = '#ef4444';
+        return { x: item.qty, y: Math.round(item.revenue), name: item.name, color };
+      });
+
+      matrixChart = new Chart(ctx, {
+        type: 'scatter',
+        data: { datasets: [{ label: 'Matrix', data: dataset, backgroundColor: dataset.map(d=>d.color), pointRadius: 6 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { title: {display:true, text:'Popularitas (Qty)'} }, y: { title: {display:true, text:'Profit (Rev)'} } }
+        }
+      });
+      matrixChart.$avgX = avgQty; matrixChart.$avgY = avgRev; matrixChart.update();
+    }
+
+    function renderTopBottomCharts(top, bottom) {
+      const topCtx = document.getElementById('topChart');
+      const botCtx = document.getElementById('bottomChart');
+      if (!topCtx || !botCtx) return;
+
+      const getVal = (arr) => chartMode==='revenue' ? arr.map(x=>Math.round(x.revenue)) : arr.map(x=>x.qty);
+      
+      if (topChart) topChart.destroy();
+      topChart = new Chart(topCtx, {
+        type: 'bar',
+        data: { labels: top.map(x=>x.name), datasets: [{ data: getVal(top), backgroundColor: '#4f46e5', borderRadius: 8 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false } } }
+      });
+
+      if (bottomChart) bottomChart.destroy();
+      bottomChart = new Chart(botCtx, {
+        type: 'bar',
+        data: { labels: bottom.map(x=>x.name), datasets: [{ data: getVal(bottom), backgroundColor: '#ef4444', borderRadius: 8 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false } } }
+      });
+    }
+
+    // ===== Alert & Super Manager =====
+    function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+
+    function getMenuSeriesFromIndex(menuName, idx) {
+      const byDay = idx.itemByDay.get(menuName) || new Map();
+      const qty = [], rev = [], attach = [];
+      idx.dayList.forEach(day => {
+        const r = byDay.get(day) || { qty: 0, rev: 0, itemOrders: 0 };
+        const tot = idx.totalOrdersByDay.get(day) || 0;
+        qty.push(Math.round(r.qty));
+        rev.push(Math.round(r.rev));
+        attach.push(tot ? (r.itemOrders / tot) : 0);
+      });
+      return { labels: idx.dayList.map(fmtDay), qty, rev, attach };
+    }
+
+    function renderAlertCenter(m, series, idx) {
+      const el = document.getElementById('alertList');
+      const alerts = [];
+      if (series?.dayRevenue?.length >= 3) {
+        const last = series.dayRevenue[series.dayRevenue.length - 1];
+        const base = avg(series.dayRevenue.slice(0, -1));
+        if (base > 0 && last < base * 0.70) alerts.push({ lvl: 'high', title: 'Revenue Drop', msg: `Hari terakhir ${fmtRp(last)} vs avg ${fmtRp(base)}.` });
+      }
+      
+      if (!alerts.length) el.innerHTML = `<div class="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold">Aman ✅ Belum ada anomali signifikan.</div>`;
+      else el.innerHTML = alerts.map(a => `<div class="p-3 bg-white border rounded-xl mb-2"><div class="font-bold text-slate-900">${a.title}</div><div class="text-xs text-slate-500">${a.msg}</div></div>`).join('');
+    }
+
+    function renderCompare(idx) {
+      const A = document.getElementById('cmpA').value;
+      const B = document.getElementById('cmpB').value;
+      const ctx = document.getElementById('compareChart');
+      if (!A || !B || !ctx) return;
+
+      const sA = getMenuSeriesFromIndex(A, idx);
+      const sB = getMenuSeriesFromIndex(B, idx);
+
+      document.getElementById('cmpAR').textContent = fmtRp(sA.rev.reduce((a,b)=>a+b,0));
+      document.getElementById('cmpBR').textContent = fmtRp(sB.rev.reduce((a,b)=>a+b,0));
+      document.getElementById('cmpAA').textContent = pct(avg(sA.attach));
+      document.getElementById('cmpBA').textContent = pct(avg(sB.attach));
+
+      if (compareChart) compareChart.destroy();
+      compareChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: sA.labels, datasets: [{ label: A, data: sA.rev, borderColor: '#4f46e5' }, { label: B, data: sB.rev, borderColor: '#0ea5e9' }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { x: { display: false } } }
+      });
+    }
+
+    function renderCombosTable(m, idx) {
+      const tbody = document.getElementById('comboTbody');
+      const rows = [...idx.pairs.values()].filter(p=>p.count>=2).sort((a,b)=>b.count-a.count).slice(0,10);
+      if(!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-400">Belum ada pairing.</td></tr>'; return; }
+      
+      tbody.innerHTML = rows.map((r,i) => `
+        <tr>
+          <td class="font-black text-slate-500">${i+1}</td>
+          <td class="font-extrabold text-xs">${escapeHtml(r.a)} + ${escapeHtml(r.b)}</td>
+          <td>${pct(r.count/m.totalOrders)}</td>
+          <td>-</td>
+          <td class="font-bold">${r.count}</td>
+          <td><button class="px-2 py-1 bg-indigo-600 text-white rounded text-xs" onclick="usePairForSim('${escapeHtml(r.a)}|||${escapeHtml(r.b)}')">Use</button></td>
+        </tr>
+      `).join('');
+    }
+
+    window.usePairForSim = (key) => {
+      const sel = document.getElementById('bundlePair');
+      if (sel) sel.value = key;
+      updateSim();
+    };
+
+    function updateSim() {
+      const snap = window.__last_metrics;
+      const key = document.getElementById('bundlePair').value;
+      const p = snap?.index?.pairs.get(key);
+      const out = document.getElementById('simOutput');
+      if (!p) { out.innerHTML = '<div class="text-slate-400">Pilih pair...</div>'; return; }
+
+      const discount = document.getElementById('simDiscount').value / 100;
+      const boost = document.getElementById('simBoost').value / 100;
+      const baseRev = p.revA + p.revB;
+      const projected = (baseRev * (1-discount)) * (1+boost); // Simple logic
+      
+      out.innerHTML = `
+        <div class="font-bold text-slate-900">${escapeHtml(p.a)} + ${escapeHtml(p.b)}</div>
+        <div class="flex justify-between mt-2"><span>Base Rev:</span> <span class="font-bold">${fmtRp(baseRev)}</span></div>
+        <div class="flex justify-between"><span>Proj. Rev:</span> <span class="font-bold text-indigo-600">${fmtRp(projected)}</span></div>
+      `;
+    }
+
+    // ===== Drawer Logic =====
+    window.closeDrawer = () => { document.getElementById('drawerOverlay').style.display='none'; document.getElementById('drawer').classList.remove('open'); };
+    window.setDrawerView = (v) => {
+      drawerView = v;
+      document.getElementById('dViewRev').classList.toggle('active', v==='revenue');
+      document.getElementById('dViewQty').classList.toggle('active', v==='qty');
+      document.getElementById('dViewAttach').classList.toggle('active', v==='attach');
+      const snap = window.__last_metrics;
+      if (snap?.drawer?.menu) renderDrawerCharts(snap.drawer.menu, snap.index);
+    };
+
+    window.openMenuDrawer = (name) => {
+      const snap = window.__last_metrics;
+      const item = snap.m.items.find(x => x.name === name);
+      if (!item) return;
+
+      document.getElementById('drawerOverlay').style.display='block';
+      document.getElementById('drawer').classList.add('open');
+      document.getElementById('drawerTitle').textContent = name;
+      document.getElementById('drawerSub').textContent = item.category;
+      
+      document.getElementById('dQty').textContent = item.qty;
+      document.getElementById('dRev').textContent = fmtRp(item.revenue);
+      document.getElementById('dAttach').textContent = pct(item.attachRate);
+      document.getElementById('dAvgPrice').textContent = fmtRp(item.avgPrice);
+
+      window.__last_metrics.drawer = { menu: name };
+      renderDrawerCharts(name, snap.index);
+      
+      // Drawer Pairs
+      const pRows = [...snap.index.pairs.values()].filter(p=>p.a===name||p.b===name).sort((a,b)=>b.count-a.count).slice(0,5);
+      document.getElementById('drawerPairs').innerHTML = pRows.length ? pRows.map(r=> 
+        `<div class="p-2 border rounded bg-white text-xs flex justify-between">
+           <span class="font-bold">${escapeHtml(r.a===name?r.b:r.a)}</span>
+           <span>${r.count} pair</span>
+         </div>`
+      ).join('') : '<div class="text-slate-400">No pairs.</div>';
+    };
+
+    function renderDrawerCharts(name, idx) {
+      const s = getMenuSeriesFromIndex(name, idx);
+      const ctx = document.getElementById('drawerDaily');
+      if (drawerDailyChart) drawerDailyChart.destroy();
+      const data = drawerView==='revenue'?s.rev : drawerView==='qty'?s.qty : s.attach.map(x=>x*100);
+      drawerDailyChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: s.labels, datasets: [{ label: drawerView, data, borderColor: '#111827' }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false } } }
+      });
+
+      const ctxH = document.getElementById('drawerHourly');
+      if (drawerHourlyChart) drawerHourlyChart.destroy();
+      const hData = idx.itemByHour.get(name) || [];
+      drawerHourlyChart = new Chart(ctxH, {
+        type: 'bar',
+        data: { labels: Array.from({length:24},(_,i)=>i), datasets: [{ data: hData, backgroundColor: '#4f46e5' }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false } } }
+      });
+    }
+
+    // ===== UI Actions =====
+    function renderTables(m) {
+      const search = document.getElementById('search-item').value.toLowerCase();
+      const items = m.items.filter(x=>x.qty>0 && (!search || x.name.toLowerCase().includes(search)));
+      const top = [...items].sort((a,b)=>b.qty-a.qty).slice(0,10);
+      const bot = [...items].sort((a,b)=>a.qty-b.qty).slice(0,10);
+
+      document.getElementById('topTbody').innerHTML = top.map((x,i)=>`
+        <tr class="click-row" onclick="openMenuDrawer('${escapeHtml(x.name)}')">
+          <td class="font-black text-slate-500">${i+1}</td>
+          <td class="font-bold text-slate-800">${escapeHtml(x.name)}</td>
+          <td><span class="pill bg-slate-100 text-slate-600">${escapeHtml(x.category)}</span></td>
+          <td class="font-bold">${x.qty}</td>
+          <td class="font-bold">${fmtRp(x.revenue)}</td>
+          <td><span class="pill bg-emerald-100 text-emerald-700">${pct(x.attachRate)}</span></td>
+        </tr>`).join('');
+
+      document.getElementById('bottomTbody').innerHTML = bot.map((x,i)=>`
+        <tr class="click-row" onclick="openMenuDrawer('${escapeHtml(x.name)}')">
+          <td class="font-black text-slate-500">${i+1}</td>
+          <td class="font-bold text-slate-800">${escapeHtml(x.name)}</td>
+          <td><span class="pill bg-slate-100 text-slate-600">${escapeHtml(x.category)}</span></td>
+          <td class="font-bold">${x.qty}</td>
+          <td class="font-bold">${fmtRp(x.revenue)}</td>
+          <td><span class="pill bg-rose-100 text-rose-700">Evaluasi</span></td>
+        </tr>`).join('');
+    }
+
+    function renderInsight(m) {
+      const box = document.getElementById('insightBox');
+      const items = m.items.filter(x => x.qty > 0);
+      
+      if (!items.length) {
+        box.innerHTML = '<div class="text-slate-400">Belum ada data transaksi.</div>';
+        return;
+      }
+
+      // Calculate Matrix Thresholds
+      const avgQty = items.reduce((a,b)=>a+b.qty,0) / items.length;
+      const avgRev = items.reduce((a,b)=>a+b.revenue,0) / items.length;
+
+      // Identify Top & Bottom (by Qty for popularity context)
+      const best = [...items].sort((a,b)=>b.qty - a.qty)[0];
+      const worst = [...items].sort((a,b)=>a.qty - b.qty)[0];
+
+      // Helper to determine quadrant
+      const getQuad = (i) => {
+        if (i.qty >= avgQty && i.revenue >= avgRev) return 'STAR';
+        if (i.qty >= avgQty && i.revenue < avgRev) return 'PLOWHORSE';
+        if (i.qty < avgQty && i.revenue >= avgRev) return 'PUZZLE';
+        return 'DOG';
+      };
+
+      const strategies = {
+        'STAR': { color: 'green', text: 'Menu Juara! 🛡️ Jaga stok & rasa, jangan diubah.' },
+        'PLOWHORSE': { color: 'yellow', text: 'Populer tapi untung tipis. 💸 Naikkan harga sedikit atau bundling.' },
+        'PUZZLE': { color: 'blue', text: 'Untung besar tapi sepi. 📣 Butuh promo / rekomendasi kasir.' },
+        'DOG': { color: 'red', text: 'Beban. ⚠️ Hapus, ganti resep, atau bundling paksa.' }
+      };
+
+      const bestQuad = getQuad(best);
+      const worstQuad = getQuad(worst);
+      const bestStrat = strategies[bestQuad];
+      const worstStrat = strategies[worstQuad];
+
+      // Operational stats
+      const qPct = m.totalRevenue ? (m.payQ / m.totalRevenue) : 0;
+      const peakShift = Object.entries(m.shift).sort((a,b)=>b[1]-a[1])[0];
+
+      box.innerHTML = `
+        <div class="space-y-3">
+          <!-- Card 1: Top Menu Analysis -->
+          <div class="p-3 bg-${bestStrat.color}-50 border border-${bestStrat.color}-200 rounded-xl relative overflow-hidden">
+             <div class="text-xs font-bold text-${bestStrat.color}-800 uppercase tracking-wider mb-1">Menu Paling Laku</div>
+             <div class="text-lg font-black text-slate-900 mb-1">${escapeHtml(best.name)}</div>
+             <div class="flex items-center gap-2 mb-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-black bg-white border border-${bestStrat.color}-300 text-${bestStrat.color}-700">${bestQuad}</span>
+                <span class="text-xs text-slate-600">${best.qty} Terjual • ${fmtRp(best.revenue)}</span>
+             </div>
+             <div class="text-xs text-slate-700 bg-white/60 p-2 rounded-lg border border-${bestStrat.color}-100 leading-relaxed">
+               💡 <strong>Saran:</strong> ${bestStrat.text}
+             </div>
+          </div>
+
+          <!-- Card 2: Low Menu Analysis -->
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+             <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Perlu Perhatian (Bottom)</div>
+             <div class="text-sm font-bold text-slate-900">${escapeHtml(worst.name)}</div>
+             <div class="text-xs text-slate-500 mb-2">Status: <strong>${worstQuad}</strong></div>
+             <div class="text-xs text-slate-600 leading-relaxed">
+               👉 ${worstStrat.text}
+             </div>
+          </div>
+
+          <!-- Card 3: Quick Ops -->
+          <div class="grid grid-cols-2 gap-2">
+             <div class="p-2 bg-white border rounded-xl text-center">
+                <div class="text-[10px] text-slate-500 font-bold">JAM RAMAI</div>
+                <div class="text-sm font-black text-indigo-600">${peakShift[0]}</div>
+             </div>
+             <div class="p-2 bg-white border rounded-xl text-center">
+                <div class="text-[10px] text-slate-500 font-bold">PEMBAYARAN</div>
+                <div class="text-sm font-black text-indigo-600">${pct(qPct)} QRIS</div>
+             </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTransactions(orders) {
+      const tbody = document.getElementById('txnTbody');
+      const active = orders.filter(o => getRelevantOrderInfo(o)).sort((a,b)=>b.timestamp-a.timestamp).slice(0,100);
+      tbody.innerHTML = active.length ? active.map(o => `
+        <tr>
+          <td class="text-xs text-slate-500 font-mono">${new Date(o.timestamp).toLocaleString('id-ID')}</td>
+          <td><span class="pill bg-slate-100 text-slate-600">${getShiftLabel(o.timestamp)}</span></td>
+          <td class="font-bold text-slate-800">${escapeHtml(o.table||'-')}</td>
+          <td><span class="pill ${normalizePayment(o.paymentMethod)==='qris'?'bg-indigo-100 text-indigo-700':'bg-slate-100 text-slate-700'}">${normalizePayment(o.paymentMethod).toUpperCase()}</span></td>
+          <td class="text-right font-bold">${fmtRp(o.total)}</td>
+        </tr>`).join('') : '<tr><td colspan="5" class="text-center py-8 text-slate-400">Empty.</td></tr>';
+    }
+
+    // ===== MISSING FUNCTION RESTORED =====
     function renderKPIs(m) {
       document.getElementById('kpi-revenue').textContent = fmtRp(m.totalRevenue);
       document.getElementById('kpi-orders').textContent = (m.totalOrders || 0).toLocaleString('id-ID');
@@ -646,363 +1297,146 @@
       document.getElementById('shift-total').textContent = fmtRp(m.totalRevenue);
     }
 
-    function buildSuggestion(item, topBest) {
-      const name = item.name;
-      const cat = item.category;
-      const isDrink = cat === 'Minuman';
-      const best = topBest?.name ? topBest.name : 'menu terlaris';
-      if (item.qty <= 1) return `Bundling dgn ${best}`;
-      if (item.attachRate < 0.1) return 'Cek kualitas rasa';
-      if (isDrink) return 'Promo jam sepi';
-      return 'Potensi Hapus';
-    }
-
-    function formatTimeAgo(ts) {
-        if (!ts) return 'Tidak diketahui';
-        const diff = Date.now() - ts;
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        if (days === 0) return 'Hari ini';
-        if (days === 1) return 'Kemarin';
-        return `${days} hari lalu`;
-    }
-
-    function renderCharts(top, bottom) {
-      const topCtx = document.getElementById('topChart');
-      const bottomCtx = document.getElementById('bottomChart');
-
-      if (topChart) topChart.destroy();
-      if (bottomChart) bottomChart.destroy();
-
-      topChart = new Chart(topCtx, {
-        type: 'bar',
-        data: {
-          labels: top.map(x => x.name),
-          datasets: [{ label: 'Qty Terjual', data: top.map(x => x.qty), backgroundColor: '#4f46e5', borderRadius: 8 }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: {
-            y: { beginAtZero: true, grid: { color: '#e2e8f0' } },
-            x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 90, minRotation: 90 } }
-          }
-        }
-      });
-
-      bottomChart = new Chart(bottomCtx, {
-        type: 'bar',
-        data: {
-          labels: bottom.map(x => x.name),
-          datasets: [{ label: 'Qty Terjual', data: bottom.map(x => x.qty), backgroundColor: '#ef4444', borderRadius: 8 }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: {
-            y: { beginAtZero: true, grid: { color: '#e2e8f0' } },
-            x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 90, minRotation: 90 } }
-          }
-        }
-      });
-    }
-
-    function renderMatrix(items) {
-       const ctx = document.getElementById('matrixChart');
-       const insightBox = document.getElementById('matrix-insight');
-       const tableBody = document.getElementById('matrixTableBody');
-       
-       if (!ctx || !insightBox || !tableBody) return;
-       if (matrixChart) matrixChart.destroy();
-
-       const activeItems = items.filter(x => x.qty > 0);
-       
-       if(activeItems.length === 0) {
-           insightBox.innerHTML = '<div class="text-center text-slate-400 text-sm">Data belum cukup untuk analisis.</div>';
-           tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">Belum ada data...</td></tr>';
-           return; 
-       }
-
-       const totalQty = activeItems.reduce((a,b) => a + b.qty, 0);
-       const totalRev = activeItems.reduce((a,b) => a + b.revenue, 0);
-       const count = activeItems.length;
-       const avgQty = totalQty / count;
-       const avgRev = totalRev / count;
-
-       let counts = { stars: 0, plowhorses: 0, puzzles: 0, dogs: 0 };
-
-       const dataset = activeItems.map(item => {
-          let color = '#94a3b8'; 
-          let cat = 'Unknown';
-          let badgeClass = '';
-          
-          if (item.qty >= avgQty && item.revenue >= avgRev) {
-             color = '#22c55e'; cat = 'Stars'; counts.stars++; badgeClass = 'mx-stars';
-          } else if (item.qty >= avgQty && item.revenue < avgRev) {
-             color = '#eab308'; cat = 'Plowhorses'; counts.plowhorses++; badgeClass = 'mx-plow';
-          } else if (item.qty < avgQty && item.revenue >= avgRev) {
-             color = '#60a5fa'; cat = 'Puzzles'; counts.puzzles++; badgeClass = 'mx-puzzle';
-          } else {
-             color = '#ef4444'; cat = 'Dogs'; counts.dogs++; badgeClass = 'mx-dogs';
-          }
-
-          return { x: item.qty, y: item.revenue, name: item.name, category: item.category, cat: cat, color: color, badgeClass: badgeClass };
-       });
-
-       let dominant = 'Dogs';
-       let maxVal = counts.dogs;
-       if (counts.stars > maxVal) { dominant = 'Stars'; maxVal = counts.stars; }
-       if (counts.plowhorses > maxVal) { dominant = 'Plowhorses'; maxVal = counts.plowhorses; }
-       if (counts.puzzles > maxVal) { dominant = 'Puzzles'; maxVal = counts.puzzles; }
-
-       let advice = '';
-       if (dominant === 'Stars') advice = 'Strategi aman. Pertahankan kualitas & stok.';
-       if (dominant === 'Plowhorses') advice = 'Populer tapi untung tipis. Coba naikkan harga atau efisiensi porsi.';
-       if (dominant === 'Puzzles') advice = 'Untung besar tapi sepi. Fokus ke marketing & foto produk menarik.';
-       if (dominant === 'Dogs') advice = 'Banyak menu beban. Evaluasi rasa atau hapus item yang > 30 hari tidak laku.';
-
-       insightBox.innerHTML = `
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-center">
-             <div class="bg-green-50 p-2 rounded-lg"><div class="font-bold text-lg text-green-700">${counts.stars}</div><div class="text-xs text-green-600">Stars</div></div>
-             <div class="bg-yellow-50 p-2 rounded-lg"><div class="font-bold text-lg text-yellow-700">${counts.plowhorses}</div><div class="text-xs text-yellow-600">Plowhorses</div></div>
-             <div class="bg-blue-50 p-2 rounded-lg"><div class="font-bold text-lg text-blue-700">${counts.puzzles}</div><div class="text-xs text-blue-600">Puzzles</div></div>
-             <div class="bg-red-50 p-2 rounded-lg"><div class="font-bold text-lg text-red-700">${counts.dogs}</div><div class="text-xs text-red-600">Dogs</div></div>
-          </div>
-          <div class="border-t border-slate-100 pt-3">
-             <div class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Kesimpulan & Rekomendasi</div>
-             <div class="text-sm text-slate-800 font-medium">Dominasi: <span class="font-bold text-indigo-600">${dominant}</span>.</div>
-             <div class="text-sm text-slate-600 mt-1">${advice}</div>
-          </div>
-       `;
-
-       const order = { 'Stars': 1, 'Plowhorses': 2, 'Puzzles': 3, 'Dogs': 4 };
-       const sortedData = [...dataset].sort((a,b) => (order[a.cat] - order[b.cat]) || (b.y - a.y));
-
-       tableBody.innerHTML = sortedData.map(d => `
-          <tr>
-             <td class="font-bold text-slate-700">${escapeHtml(d.name)}</td>
-             <td class="text-xs text-slate-500">${escapeHtml(d.category)}</td>
-             <td class="font-mono">${d.x}</td>
-             <td class="font-mono">${fmtRp(d.y)}</td>
-             <td><span class="mx-badge ${d.badgeClass}">${d.cat}</span></td>
-          </tr>
-       `).join('');
-
-       matrixChart = new Chart(ctx, {
-          type: 'scatter',
-          data: { datasets: [{ label: 'Menu Matrix', data: dataset, backgroundColor: dataset.map(d => d.color), pointRadius: 6, pointHoverRadius: 8 }] },
-          options: {
-             responsive: true, maintainAspectRatio: false,
-             plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.raw.name}: ${ctx.raw.x} Qty, ${fmtRp(ctx.raw.y)}` } } },
-             scales: {
-                x: { title: { display: true, text: 'Popularitas (Qty Terjual)' }, grid: { color: (ctx) => ctx.tick.value === 0 ? '#000' : '#e2e8f0' } },
-                y: { title: { display: true, text: 'Profitabilitas (Revenue)' }, grid: { color: '#e2e8f0' } }
-             }
-          }
-       });
-    }
-
-    function renderInsight(m, top, bottom) {
-      const box = document.getElementById('insightBox');
-      if (!m.totalOrders) { box.innerHTML = '<div class="text-slate-400">Belum ada transaksi.</div>'; return; }
-      const best = top[0]; const worst = bottom[0];
-      const top5RevShare = top.slice(0,5).reduce((a,x)=>a + x.revShare, 0);
-      const qPct = m.totalRevenue ? (m.payQ / m.totalRevenue) : 0;
-      const peakShift = Object.entries(m.shift).sort((a,b)=>b[1]-a[1])[0];
-
-      box.innerHTML = `
-        <div class="p-3 rounded-xl bg-indigo-50 border border-indigo-100">
-          <div class="font-extrabold text-indigo-900">Fokus Terlaris (${currentCategory})</div>
-          <div class="mt-1">Menu #1: <span class="font-extrabold">${escapeHtml(best?.name || '-')}</span> • Qty <span class="font-extrabold">${best?.qty || 0}</span> • Rev Share <span class="font-extrabold">${pct(best?.revShare || 0)}</span></div>
-        </div>
-        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
-          <div class="font-extrabold text-slate-900">Operasional</div>
-          <div class="mt-1">Metode bayar: <span class="font-extrabold">${pct(qPct)}</span> QRIS. Shift ramai: <span class="font-extrabold">${peakShift?.[0] || '-'}</span>.</div>
-        </div>
-      `;
-    }
-
-    function renderTransactions(orders) {
-      const tbody = document.getElementById('txnTbody');
-      const activeTxns = orders.filter(o => {
-         const allItems = safeItems(o);
-         const relevant = allItems.filter(i => {
-             const cat = inferCategory(i);
-             if (currentCategory === 'All') return true;
-             return cat === currentCategory;
-         });
-         return relevant.length > 0;
-      });
-
-      if (!activeTxns.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">Belum ada transaksi...</td></tr>'; return; }
-      
-      const sorted = [...activeTxns].sort((a,b) => b.timestamp - a.timestamp).slice(0, 120);
-      tbody.innerHTML = sorted.map(o => {
-        const d = new Date(o.timestamp);
-        const timeStr = d.toLocaleString('id-ID', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
-        const shift = getShiftLabel(o.timestamp);
-        const shiftCls = shift==='Pagi' ? 'bg-amber-100 text-amber-800' : shift==='Siang' ? 'bg-emerald-100 text-emerald-700' : 'bg-violet-100 text-violet-700';
-        const pay = normalizePayment(o.paymentMethod);
-        const payCls = pay==='qris' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700';
-        return `
-          <tr>
-            <td class="font-mono text-xs text-slate-500">${timeStr}</td>
-            <td><span class="pill ${shiftCls}">${shift}</span></td>
-            <td class="font-semibold text-slate-800">${escapeHtml(o.table || '-')}${o.customer ? ' / ' + escapeHtml(o.customer) : ''}</td>
-            <td><span class="pill ${payCls}">${(o.paymentMethod || (pay==='qris'?'QRIS':'CASH')).toString()}</span></td>
-            <td class="text-right font-extrabold">${fmtRp(o.total)}</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function renderTables() {
-      if (!filteredOrders) return;
-      const m = computeMetrics(filteredOrders);
-      const search = String(document.getElementById('search-item').value || '').trim().toLowerCase();
-      const itemsAll = m.items.filter(x => x.name && (search ? x.name.toLowerCase().includes(search) : true)).filter(x => x.qty > 0);
-
-      const top = [...itemsAll].sort((a,b)=>b.qty - a.qty || b.revenue - a.revenue).slice(0, 12);
-      const bottom = [...itemsAll].sort((a,b)=>a.qty - b.qty || a.revenue - b.revenue).slice(0, 12);
-
-      const topT = document.getElementById('topTbody');
-      const bottomT = document.getElementById('bottomTbody');
-
-      const top5Share = top.slice(0,5).reduce((acc, curr) => acc + curr.revShare, 0) * 100;
-      document.getElementById('top-summary').innerText = `🔥 Top 5 Menu Menyumbang ${top5Share.toFixed(1)}% dari Total Omset`;
-      const bottom5Share = bottom.slice(0,5).reduce((acc, curr) => acc + curr.revShare, 0) * 100;
-      document.getElementById('bottom-summary').innerText = `⚠️ 5 Menu Terbawah Hanya Menyumbang ${bottom5Share.toFixed(2)}% dari Total Omset`;
-
-      const renderRows = (arr, isTop) => arr.length ? arr.map((x, i) => `
-        <tr>
-          <td class="font-black text-slate-500">${i + 1}</td>
-          <td class="font-extrabold">${escapeHtml(x.name)}</td>
-          <td><span class="pill ${x.category === 'Makanan' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-700'}">${escapeHtml(x.category)}</span></td>
-          <td class="font-extrabold">${x.qty}</td>
-          <td class="font-extrabold">${isTop ? fmtRp(x.revenue) : formatTimeAgo(x.lastSold)}</td>
-          <td><span class="pill ${isTop ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${isTop ? pct(x.revShare) : escapeHtml(buildSuggestion(x, top[0]))}</span></td>
-        </tr>`).join('') : '<tr><td colspan="6" class="text-center py-8 text-slate-400">Belum ada data.</td></tr>';
-
-      topT.innerHTML = renderRows(top, true);
-      bottomT.innerHTML = renderRows(bottom, false);
-
-      const itemsNoSearch = m.items.filter(x => x.qty > 0);
-      const topNoSearch = [...itemsNoSearch].sort((a,b)=>b.qty - a.qty).slice(0, 10);
-      const bottomNoSearch = [...itemsNoSearch].sort((a,b)=>a.qty - b.qty).slice(0, 10);
-
-      renderCharts(topNoSearch, bottomNoSearch);
-      renderMatrix(itemsNoSearch);
-      renderInsight(m, topNoSearch, bottomNoSearch);
-      window.__last_metrics = { m, top: topNoSearch, bottom: bottomNoSearch };
-    }
-
-    window.downloadCSV = () => { /* ... existing export logic ... */ };
-    window.setFilter = (filter) => {
-      currentFilter = filter;
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('bg-indigo-100','text-indigo-700'); btn.classList.add('text-slate-600');
-      });
-      document.getElementById(`btn-${filter}`).classList.replace('text-slate-600', 'text-indigo-700');
-      document.getElementById(`btn-${filter}`).classList.add('bg-indigo-100');
-      filterOrders(filter);
-    };
-
-    window.setCategory = (cat) => { currentCategory = cat; renderAll(); filterOrders(currentFilter); };
-    window.applyCustomRange = () => { /* ... existing custom range logic ... */ };
-    window.handleLogin = async (e) => { /* ... existing login logic ... */ };
-    window.doLogout = () => signOut(auth);
-
-    function escapeHtml(str) { return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-    function renderAll() {
+    function recomputeAndRender() {
       const m = computeMetrics(filteredOrders);
       renderKPIs(m);
-      renderTables();
+      if(currentRange.startBiz && currentRange.endBiz) renderGrowth(m, currentRange.startBiz, currentRange.endBiz);
+      
+      const series = buildTimeSeries(filteredOrders, currentRange.startBiz, currentRange.endBiz);
+      renderTrendCharts(series);
+      
+      const idx = buildManagerIndex(filteredOrders, currentRange.startBiz, currentRange.endBiz);
+      
+      renderTables(m);
+      renderMatrix(m.items);
+      renderInsight(m); // Now uses the enhanced logic
       renderTransactions(filteredOrders);
+      
+      renderAlertCenter(m, series, idx);
+      renderCombosTable(m, idx);
+      
+      // Populate compare options
+      const names = m.items.sort((a,b)=>b.revenue-a.revenue).map(x=>x.name);
+      const mkOpt = (sel) => sel.innerHTML = names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+      if(!document.getElementById('cmpA').value) { mkOpt(document.getElementById('cmpA')); mkOpt(document.getElementById('cmpB')); }
+      renderCompare(idx);
+
+      // Populate bundle options
+      const pairs = [...idx.pairs.values()].sort((a,b)=>b.count-a.count).slice(0,50);
+      document.getElementById('bundlePair').innerHTML = pairs.map(p=>`<option value="${p.a}|||${p.b}">${p.a} + ${p.b}</option>`).join('');
+      updateSim();
+
+      window.__last_metrics = { m, series, index: idx };
     }
 
-    // ===== NEW: MANUAL DATA FETCHING (Hemat Kuota) =====
+    // ===== Main Data Fetch =====
     window.fetchData = async () => {
-       const statusEl = document.getElementById('data-status-label');
-       const btn = document.getElementById('btn-refresh');
-       
-       statusEl.textContent = 'Sedang mengambil data...';
-       btn.disabled = true;
-       btn.innerHTML = '⏳ Loading...';
+      const btn = document.getElementById('btn-refresh');
+      const st = document.getElementById('data-status-label');
+      btn.innerHTML = '⏳ Loading...'; btn.disabled = true; st.textContent = 'Mengambil data...';
 
-       try {
-           // REVISI: Hapus 'orderBy' untuk menghindari error index/missing field.
-           // Kita ambil data secara raw (limit 2000), lalu sort di client-side (Javascript).
-           // Ini jauh lebih aman untuk memastikan data muncul dulu.
-           const q = query(
-              collection(db, 'completedOrders'), 
-              limit(2000) 
-           );
-           
-           const snap = await getDocs(q);
-           
-           allOrders = snap.docs.map(d => {
-              const data = d.data();
-              // Normalisasi timestamp
-              const ts = data.createdAt?.seconds ? data.createdAt.seconds * 1000 : (data.timestamp || Date.now());
-              return { ...data, timestamp: ts };
-           })
-           .filter(o => o.timestamp && (Number(o.total || 0) >= 0))
-           // SORTING MANUAL DI SINI (Client Side)
-           .sort((a, b) => b.timestamp - a.timestamp);
-           
-           // Init Dates
-           const now = new Date();
-           const yyyy = now.getFullYear();
-           const mm = String(now.getMonth()+1).padStart(2,'0');
-           const dd = String(now.getDate()).padStart(2,'0');
-           document.getElementById('date-start').value = `${yyyy}-${mm}-${dd}`;
-           document.getElementById('date-end').value = `${yyyy}-${mm}-${dd}`;
+      try {
+        const q = query(collection(db, 'completedOrders'), limit(2500));
+        const snap = await getDocs(q);
+        allOrders = snap.docs.map(d => {
+          const dt = d.data();
+          return { ...dt, timestamp: dt.createdAt?.seconds*1000 || dt.timestamp || Date.now() };
+        }).filter(o => o.timestamp && (Number(o.total||0)>=0)).sort((a,b)=>a.timestamp-b.timestamp);
 
-           // Update tampilan UI Filter agar sesuai default 'week'
-           document.querySelectorAll('.filter-btn').forEach(b => {
-               b.classList.remove('bg-indigo-100','text-indigo-700'); 
-               b.classList.add('text-slate-600');
-           });
-           const btnWeek = document.getElementById('btn-week');
-           if(btnWeek) {
-               btnWeek.classList.remove('text-slate-600');
-               btnWeek.classList.add('bg-indigo-100','text-indigo-700');
-           }
+        const now = new Date();
+        const fmt = (d) => d.toISOString().split('T')[0];
+        document.getElementById('date-start').value = fmt(now);
+        document.getElementById('date-end').value = fmt(now);
 
-           filterOrders(currentFilter);
-           
-           statusEl.textContent = `Data terupdate: ${new Date().toLocaleTimeString()} (${allOrders.length} data)`;
-           statusEl.className = 'text-green-600 font-bold';
-       } catch (err) {
-           console.error(err);
-           showError('Gagal mengambil data: ' + err.message);
-           statusEl.textContent = 'Gagal update data.';
-           statusEl.className = 'text-red-600';
-       } finally {
-           btn.disabled = false;
-           btn.innerHTML = '🔄 Refresh Data';
-       }
+        // Reset Filter UI
+        document.querySelectorAll('.filter-btn').forEach(b=> { b.classList.remove('bg-indigo-100','text-indigo-700'); b.classList.add('text-slate-600'); });
+        document.getElementById('btn-week').classList.add('bg-indigo-100','text-indigo-700');
+        
+        filterOrders('week');
+        st.textContent = `Updated: ${new Date().toLocaleTimeString()} (${allOrders.length} data)`;
+        st.className = 'text-green-600 font-bold';
+      } catch (e) {
+        console.error(e); showError('Gagal ambil data.');
+        st.textContent = 'Error update.'; st.className = 'text-red-500';
+      } finally {
+        btn.innerHTML = '🔄 Refresh Data'; btn.disabled = false;
+      }
     };
 
-    // ===== Boot =====
+    // Filter Wrappers
+    window.setFilter = (f) => {
+      currentFilter = f;
+      document.querySelectorAll('.filter-btn').forEach(b=> { b.classList.remove('bg-indigo-100','text-indigo-700'); b.classList.add('text-slate-600'); });
+      const btn = document.getElementById('btn-'+f);
+      if(btn) { btn.classList.remove('text-slate-600'); btn.classList.add('bg-indigo-100','text-indigo-700'); }
+      filterOrders(f);
+    };
+    window.setCategory = (c) => { currentCategory = c; filterOrders(currentFilter); };
+    window.applyCustomRange = () => {
+      const s = document.getElementById('date-start').value;
+      const e = document.getElementById('date-end').value;
+      if(!s||!e) return alert('Pilih tanggal.');
+      customRange = { start: getBizDate(new Date(s).getTime()), end: getBizDate(new Date(e).getTime()) };
+      setFilter('custom');
+    };
+    function filterOrders(p) {
+      const now = new Date(), today = getBizDate(now.getTime());
+      let s, e;
+      if (p==='today') { s=today; e=today; }
+      else if (p==='week') { s=today-(6*DAY); e=today; }
+      else if (p==='month') { s=today-(29*DAY); e=today; }
+      else { s=customRange.start; e=customRange.end; }
+      
+      currentRange = { startBiz: s, endBiz: e };
+      document.getElementById('range-label').textContent = `Range: ${fmtDay(s)} - ${fmtDay(e)}`;
+      
+      filteredOrders = allOrders.filter(o => {
+        const b = getBizDate(o.timestamp);
+        return b >= s && b <= e;
+      });
+      recomputeAndRender();
+    }
+
+    // Input Listeners
+    document.getElementById('search-item').addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => renderTables(window.__last_metrics.m), 300);
+    });
+    document.getElementById('simDiscount').addEventListener('input', (e) => {
+      document.getElementById('simDiscountVal').textContent = e.target.value; updateSim();
+    });
+    document.getElementById('simBoost').addEventListener('input', (e) => {
+      document.getElementById('simBoostVal').textContent = e.target.value; updateSim();
+    });
+    document.getElementById('cmpA').addEventListener('change', () => renderCompare(window.__last_metrics.index));
+    document.getElementById('cmpB').addEventListener('change', () => renderCompare(window.__last_metrics.index));
+    document.getElementById('bundlePair').addEventListener('change', updateSim);
+
+    // Auth & Boot
+    window.handleLogin = async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btn-login');
+      btn.textContent = 'Loading...'; btn.disabled = true;
+      try {
+        await signInWithEmailAndPassword(auth, document.getElementById('mgr-email').value, document.getElementById('mgr-pass').value);
+      } catch (err) {
+        document.getElementById('login-error').textContent = 'Gagal: ' + err.message;
+        document.getElementById('login-error').classList.remove('hidden');
+        btn.textContent = 'Masuk'; btn.disabled = false;
+      }
+    };
+    window.doLogout = () => signOut(auth);
+
     onAuthStateChanged(auth, (user) => {
-      const overlay = document.getElementById('auth-overlay');
-      const dashboard = document.getElementById('dashboard-ui');
-
       if (user) {
-        overlay.style.display = 'none';
-        dashboard.style.display = 'block';
-        
-        // PANGGIL MANUAL SATU KALI SAJA SAAT LOGIN
-        fetchData(); 
-
+        document.getElementById('auth-overlay').style.display = 'none';
+        document.getElementById('dashboard-ui').style.display = 'block';
+        fetchData();
       } else {
-        overlay.style.display = 'flex';
-        dashboard.style.display = 'none';
+        document.getElementById('auth-overlay').style.display = 'flex';
+        document.getElementById('dashboard-ui').style.display = 'none';
       }
     });
-
   </script>
 </body>
 </html>
